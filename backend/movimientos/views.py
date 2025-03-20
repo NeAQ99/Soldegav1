@@ -1,0 +1,226 @@
+from datetime import datetime
+import io
+import logging
+from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django.utils.dateparse import parse_date
+from django.db.models import Sum 
+from ordenes.models import OrdenesCompras, OrdenCompraDetalle 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
+from bodega.models import Producto  
+from rest_framework import status
+from reportlab.lib import colors
+from movimientos.models import Entrada, Salida
+from reportlab.lib.styles import getSampleStyleSheet
+from .models import Entrada, Salida
+from .serializers import EntradaSerializer, SalidaSerializer
+
+logger = logging.getLogger(__name__)
+class EntradaViewSet(viewsets.ModelViewSet):
+    queryset = Entrada.objects.all()  # Atributo por defecto
+    serializer_class = EntradaSerializer
+
+    def get_queryset(self):
+        qs = Entrada.objects.all().order_by('-fecha')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date and end_date:
+            qs = qs.filter(fecha__date__gte=start_date, fecha__date__lte=end_date)
+        consignacion_param = self.request.query_params.get('consignacion')
+        if consignacion_param and consignacion_param.lower() == "true":
+            qs = qs.filter(producto__consignacion=True)
+        return qs
+
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        items = data.get('items', [])
+        motivo = data.get('motivo', '')
+        comentario = data.get('comentario', '')
+        orden_compra_id = data.get('orden_compra', None)
+        created_entries = []
+
+        logger.info(f"Payload recibido: {data}")
+        
+        for item in items:
+            logger.info(f"Procesando ítem: {item}")
+            if not item.get('arrived', True):
+                logger.info("Ítem no marcado como 'arrived', forzando cantidad a 0")
+                item['cantidad'] = 0
+            if not item.get('costo_unitario'):
+                try:
+                    product = Producto.objects.get(id=item.get('producto'))
+                    item['costo_unitario'] = product.precio_compra
+                    logger.info(f"Costo unitario asignado: {product.precio_compra}")
+                except Producto.DoesNotExist:
+                    return Response({"error": "Producto no encontrado."}, status=status.HTTP_400_BAD_REQUEST)
+            item['motivo'] = motivo
+            item['comentario'] = comentario
+            if motivo == 'recepcion_oc' and orden_compra_id:
+                item['orden_compra'] = orden_compra_id
+            serializer = self.get_serializer(data=item)
+            serializer.is_valid(raise_exception=True)
+            entrada = serializer.save(usuario=request.user)
+            created_entries.append(serializer.data)
+            try:
+                product = Producto.objects.get(id=item.get('producto'))
+                logger.info(f"Stock actual antes: {product.stock_actual}")
+                product.stock_actual += int(item.get('cantidad'))
+                product.save()
+                logger.info(f"Stock actual después: {product.stock_actual}")
+            except Producto.DoesNotExist:
+                pass
+
+        logger.info(f"Entradas creadas: {created_entries}")
+        return Response(created_entries, status=status.HTTP_201_CREATED)
+
+
+class SalidaViewSet(viewsets.ModelViewSet):
+    queryset = Salida.objects.all()  # Atributo por defecto
+    serializer_class = SalidaSerializer
+
+    def get_queryset(self):
+        qs = Salida.objects.all().order_by('-fecha')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        if start_date and end_date:
+            qs = qs.filter(fecha__date__gte=start_date, fecha__date__lte=end_date)
+        consignacion_param = self.request.query_params.get('consignacion')
+        if consignacion_param and consignacion_param.lower() == "true":
+            qs = qs.filter(producto__consignacion=True)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        items = data.get('items', [])
+        comentario = data.get('comentario', '')
+        created_items = []
+        for item in items:
+            item['comentario'] = comentario
+            serializer = self.get_serializer(data=item)
+            serializer.is_valid(raise_exception=True)
+            salida = serializer.save(usuario=request.user)
+            created_items.append(serializer.data)
+            try:
+                product = Producto.objects.get(id=item.get('producto'))
+                product.stock_actual -= int(item.get('cantidad'))
+                product.save()
+            except Producto.DoesNotExist:
+                pass
+        return Response(created_items, status=status.HTTP_201_CREATED)
+
+
+
+class ReportePDFView(viewsets.ViewSet):
+    """
+    Endpoint para generar el PDF del movimiento (entradas o salidas).
+    Parámetros esperados:
+      - tipo: 'entrada' o 'salida'
+      - start_date y end_date en formato YYYY-MM-DD
+      - consignacion (opcional): si es "true", se filtrarán solo los movimientos de consignación.
+    
+    Si no se envía consignacion o su valor no es "true", se mostrarán todos los movimientos.
+    """
+    @action(detail=False, methods=['get'])
+    def generar_pdf(self, request):
+        tipo = request.query_params.get('tipo', 'entrada')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        consignacion_param = request.query_params.get('consignacion')  # Parámetro opcional
+
+        if not start_date or not end_date:
+            return Response({"error": "Se requieren start_date y end_date"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError:
+            return Response({"error": "Formato de fecha inválido. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Filtrado base por fecha
+        if tipo == 'entrada':
+            queryset = Entrada.objects.filter(
+                fecha__date__gte=start.date(), 
+                fecha__date__lte=end.date()
+            )
+            header = ['Cantidad', 'Producto', 'Motivo', 'Valor Producto', 'Total Producto']
+        else:
+            queryset = Salida.objects.filter(
+                fecha__date__gte=start.date(), 
+                fecha__date__lte=end.date()
+            )
+            header = ['Cantidad', 'Producto', 'Cargo', 'Valor Producto', 'Total Producto']
+        
+        # Si se envía consignacion con valor "true", filtrar movimientos de productos de consignación
+        if consignacion_param and consignacion_param.lower() == "true":
+            queryset = queryset.filter(producto__consignacion=True)
+        
+        total_movimientos = 0
+        total_valor = 0
+        data = [header]
+        
+        # Construcción de filas según el tipo
+        if tipo == 'entrada':
+            for entrada in queryset:
+                cantidad = entrada.cantidad
+                producto = f"{entrada.producto.codigo} - {entrada.producto.nombre}"
+                motivo = entrada.motivo
+                valor_producto = float(entrada.costo_unitario)
+                total_producto = cantidad * valor_producto
+                total_movimientos += cantidad
+                total_valor += total_producto
+                data.append([
+                    str(cantidad),
+                    producto,
+                    motivo,
+                    f"${valor_producto:.2f}",
+                    f"${total_producto:.2f}"
+                ])
+            data.append(['', '', 'Total Entradas:', str(total_movimientos), f"${total_valor:.2f}"])
+        else:
+            for salida in queryset:
+                cantidad = salida.cantidad
+                producto = f"{salida.producto.codigo} - {salida.producto.nombre}"
+                cargo = salida.cargo
+                valor_producto = float(salida.producto.precio_compra)
+                total_producto = cantidad * valor_producto
+                total_movimientos += cantidad
+                total_valor += total_producto
+                data.append([
+                    str(cantidad),
+                    producto,
+                    cargo,
+                    f"${valor_producto:.2f}",
+                    f"${total_producto:.2f}"
+                ])
+            data.append(['', '', 'Total Salidas:', str(total_movimientos), f"${total_valor:.2f}"])
+        
+        # Generación del PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
+        title = Paragraph("Informe de Movimiento", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 40))
+        table = Table(data, colWidths=[60, 150, 100, 80, 80])
+        table_style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.gray),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.orange),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ])
+        table.setStyle(table_style)
+        elements.append(table)
+        doc.build(elements)
+        pdf = buffer.getvalue()
+        buffer.close()
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="informe_movimiento.pdf"'
+        response.write(pdf)
+        return response
