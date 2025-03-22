@@ -3,21 +3,19 @@ from pathlib import Path
 from datetime import timedelta
 import environ
 
+# Inicializar entorno
+env = environ.Env()
+environ.Env.read_env()
 
-# Inicializar variables de entorno
-env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env()  # Lee el archivo .env
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = env('SECRET_KEY')
-DEBUG = env('DEBUG')
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Seguridad
+SECRET_KEY = os.environ.get("SECRET_KEY", "insecure-dev-key")
+DEBUG = env.bool("DEBUG", default=False)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-
-
-# Application definition
-
+# Aplicaciones instaladas
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -33,13 +31,14 @@ INSTALLED_APPS = [
     'ordenes',
     'maquinaria',
     'alertas',
-    'django_q',  # Aplicación de Django Q
-    # Aquí se incluirán las apps del proyecto (usuarios, bodega, maquinaria, proveedores, etc.)
+    "django_q",
 ]
 
+# Middleware
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -47,6 +46,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
 ROOT_URLCONF = 'SolDega.urls'
 
 TEMPLATES = [
@@ -67,85 +67,58 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'SolDega.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
-# Configuración de la base de datos
+# Configuración de base de datos para EB / local
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
+        'NAME': os.environ.get('DB_NAME', 'soldega'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
+# CORS
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"])
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
-
+# Django REST Framework + JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
-AUTH_USER_MODEL = 'usuarios.Usuario'
-
-# Configuración de los tokens de Simple JWT
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(weeks=2),
     'REFRESH_TOKEN_LIFETIME': timedelta(weeks=4),
 }
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
+AUTH_USER_MODEL = 'usuarios.Usuario'
+
+# Internacionalización
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
+# Archivos estáticos
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "static",]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+# Seguridad para producción
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
+# Logging básico
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
+        'console': {'class': 'logging.StreamHandler'},
     },
     'root': {
         'handlers': ['console'],
@@ -153,6 +126,7 @@ LOGGING = {
     },
 }
 
+# Django Q
 Q_CLUSTER = {
     'name': 'DjangoQ',
     'workers': 4,
@@ -161,5 +135,7 @@ Q_CLUSTER = {
     'retry': 120,
     'queue_limit': 50,
     'bulk': 10,
-    'orm': 'default'
+    'orm': 'default',
 }
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
