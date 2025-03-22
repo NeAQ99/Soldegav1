@@ -3,10 +3,10 @@ from pathlib import Path
 from datetime import timedelta
 import environ
 
-# Inicializar entorno
 env = environ.Env()
-environ.Env.read_env()
 
+if env.bool("DEBUG", default=True):
+    environ.Env.read_env()  # ✅ Solo carga .env en desarrollo
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
