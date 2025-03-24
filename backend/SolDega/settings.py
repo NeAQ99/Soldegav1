@@ -3,16 +3,21 @@ from pathlib import Path
 from datetime import timedelta
 import environ
 
-env = environ.Env()
-environ.Env.read_env()
-
+# Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Seguridad
-SECRET_KEY = os.environ.get("SECRET_KEY", "insecure-dev-key")
-DEBUG = env.bool("DEBUG", default=False)
-ALLOWED_HOSTS = ['.elasticbeanstalk.com']
+# Inicializar entorno
+env = environ.Env()
+if os.environ.get("GAE_ENV", "").startswith("standard"):
+    pass
+else:
+    env.read_env(os.path.join(BASE_DIR, ".env"))
 
+
+# Seguridad
+SECRET_KEY = env.str("SECRET_KEY", default="insecure-dev-key")
+DEBUG = env.bool("DEBUG", default=False)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
 # Aplicaciones instaladas
 INSTALLED_APPS = [
@@ -30,7 +35,7 @@ INSTALLED_APPS = [
     'ordenes',
     'maquinaria',
     'alertas',
-    "django_q",
+    'django_q',
 ]
 
 # Middleware
@@ -66,17 +71,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'SolDega.wsgi.application'
 
+# Base de datos PostgreSQL (Cloud SQL)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
+        'NAME': env("DB_NAME"),
+        'USER': env("DB_USER"),
+        'PASSWORD': env("DB_PASSWORD"),
+        'HOST': env("DB_HOST"),
+        'PORT': env("DB_PORT"),
     }
 }
-
 
 # CORS
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"])
@@ -104,9 +109,9 @@ USE_TZ = True
 # Archivos estáticos
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-
-# Seguridad para producción
+# Seguridad extra en producción
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

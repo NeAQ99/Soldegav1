@@ -1,0 +1,28 @@
+runtime: python311
+
+entrypoint: gunicorn -b :$PORT SolDega.wsgi
+
+env_variables:
+  DJANGO_SETTINGS_MODULE: "SolDega.settings"
+  SECRET_KEY: django-insecure-"rrgmd0*&i9-(q1wy*qpjuqn2k07g0j!(x-@cdv-j^56k=*k!3x"
+  DEBUG: "False"
+  ALLOWED_HOSTS: "*"
+
+  DB_NAME: "soldega"
+  DB_USER: "soldega_admin"
+  DB_PASSWORD: "Escobar99!"
+  DB_HOST: "/cloudsql/soldega-prod:southamerica-west1:soldega-db"
+  DB_PORT: "5432"
+
+  CORS_ALLOWED_ORIGINS: "https://soldega-frontend.web.app"
+
+instance_class: F2
+
+beta_settings:
+  cloud_sql_instances: soldega-prod:southamerica-west1:soldega-db
+
+handlers:
+  - url: /static
+    static_dir: staticfiles
+  - url: /.*
+    script: auto
