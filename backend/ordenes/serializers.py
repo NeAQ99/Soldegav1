@@ -45,9 +45,10 @@ class SolicitudSerializer(serializers.ModelSerializer):
             try:
                 new_num = int(last_sol) + 1
             except ValueError:
-                new_num = 1000
+                new_num = 3400
         else:
-            new_num = 1000
+            new_num = 3400
+        # Asignar el nuevo número de solicitud al campo correspondiente
         validated_data['numero_solicitud'] = str(new_num)
         solicitud = Solicitud.objects.create(**validated_data)
         for detalle in detalles_data:
@@ -92,9 +93,9 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             try:
                 new_num = int(last_order) + 1
             except ValueError:
-                new_num = 7577
+                new_num = 7680
         else:
-            new_num = 7577
+            new_num = 7680
         validated_data['numero_orden'] = str(new_num)
         orden = super().create(validated_data)
         for detalle_data in detalles_data:
