@@ -105,7 +105,7 @@ function Solicitudes() {
   };
 
   const handleDescargarPDF = (solicitudId) => {
-    const url = `http://localhost:8000/api/solicitudes/reporte/generar_pdf/?solicitud_id=${solicitudId}`;
+    const url = `https://soldega-prod.rj.r.appspot.com/api/solicitudes/reporte/generar_pdf/?solicitud_id=${solicitudId}`;
     window.open(url, '_blank');
   };
 

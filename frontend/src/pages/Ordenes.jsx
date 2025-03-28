@@ -150,7 +150,7 @@ function Ordenes() {
   };
 
   const handleDownloadPDF = (ordenId) => {
-    const url = `http://localhost:8000/api/ordenes/reporte/generar_pdf/?orden_id=${ordenId}`;
+    const url = `https://soldega-prod.rj.r.appspot.com/api/ordenes/reporte/generar_pdf/?orden_id=${ordenId}`;
     window.open(url, '_blank');
   };
 

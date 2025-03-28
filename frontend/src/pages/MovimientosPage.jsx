@@ -103,7 +103,7 @@ function MovimientosPage() {
 
   const handleDownloadPDF = () => {
     const tipo = tab === 0 ? 'entrada' : 'salida';
-    let url = `http://localhost:8000/api/movimientos/reporte/generar_pdf/?tipo=${tipo}`;
+    let url = `https://soldega-prod.rj.r.appspot.com/api/movimientos/reporte/generar_pdf/?tipo=${tipo}`;
     if (startDate && endDate) {
       url += `&start_date=${startDate.format('YYYY-MM-DD')}&end_date=${endDate.format('YYYY-MM-DD')}`;
     }
