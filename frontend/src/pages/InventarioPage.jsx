@@ -159,7 +159,7 @@ function InventarioPage() {
       {/* Barra de búsqueda y filtro */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
         <TextField
-          label="Buscar (nombre, código, ubicación, consignación)"
+          label="Buscar (nombre, código, ubicación, consignación, descripción)"
           variant="outlined"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -196,6 +196,7 @@ function InventarioPage() {
     <TableRow>
       <TableCell sx={{ color: 'white' }}>Código</TableCell>
       <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
+      <TableCell sx={{ color: 'white' }}>Descripción</TableCell>
       <TableCell sx={{ color: 'white' }}>Stock Actual</TableCell>
       <TableCell sx={{ color: 'white' }}>Stock Mínimo</TableCell> {/* Nueva Columna */}
       <TableCell sx={{ color: 'white' }}>Precio Compra</TableCell>
@@ -211,6 +212,7 @@ function InventarioPage() {
         <TableRow key={producto.id}>
           <TableCell>{producto.codigo}</TableCell>
           <TableCell>{producto.nombre}</TableCell>
+          <TableCell>{producto.descripcion}</TableCell>
           <TableCell>{producto.stock_actual}</TableCell>
           <TableCell>{producto.stock_minimo}</TableCell> {/* Mostrar el Stock Mínimo */}
           <TableCell>{producto.precio_compra}</TableCell>
