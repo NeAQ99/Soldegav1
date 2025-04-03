@@ -164,10 +164,9 @@ class SolicitudPDFView(viewsets.ViewSet):
         response['Content-Disposition'] = 'attachment; filename="solicitud.pdf"'
         response.write(pdf)
         return response
-    
-class OrdenesPDFView(viewsets.ViewSet):
-    queryset = OrdenesCompras.objects.all().order_by('-fecha')
 
+class OrdenesComprasViewSet(viewsets.ModelViewSet):
+    queryset = OrdenesCompras.objects.all().order_by('-fecha')
     serializer_class = OrdenesComprasSerializer
 
     @action(detail=False, methods=['get'], url_path='pendientes')
@@ -185,6 +184,10 @@ class OrdenesPDFView(viewsets.ViewSet):
         orders_to_update.update(estado='inactiva')
         return super().list(request, *args, **kwargs)
     
+class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
+    queryset = OrdenCompraDetalle.objects.all()
+    serializer_class = OrdenCompraDetalleSerializer
+
 class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
@@ -345,4 +348,3 @@ class OrdenesPDFView(viewsets.ViewSet):
         response['Content-Disposition'] = 'attachment; filename="orden_compra.pdf"'
         response.write(pdf)
         return response
-
