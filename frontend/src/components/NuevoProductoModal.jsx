@@ -1,4 +1,3 @@
-// src/components/NuevoProductoModal.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -8,218 +7,257 @@ import {
   Button,
   TextField,
   Box,
-  FormControlLabel,
-  Checkbox,
+  Typography
 } from '@mui/material';
 
-function NuevoProductoModal({ open, onClose, onSubmit }) {
-  const [productoData, setProductoData] = useState({
-    codigo: '',
-    nombre: '',
-    descripcion: '',
-    categoria: '',
-    tipo: '',
-    precio_compra: '',
-    stock_actual: '',
-    stock_minimo: '',
-    consignacion: false,
-    nombre_consignacion: '',
-    ubicacion: '',
-  });
+function NuevaSolicitudModal({ open, onClose, onSubmit }) {
+  const [nombreSolicitante, setNombreSolicitante] = useState('');
+  const [folio, setFolio] = useState('');
+  const [nroCotizacion, setNroCotizacion] = useState(''); // NUEVO: Campo para el número de cotización
+  const [comentario, setComentario] = useState('');
+  // Detalle de la solicitud
+  const [detalleItems, setDetalleItems] = useState([
+    { producto: '', cantidad: '', cargo: '', stockBodega: '' },
+  ]);
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    if (open) {
+      setErrors({});
+    }
+  }, [open]);
+
   const validateForm = () => {
-    const formErrors = {};
-    if (!productoData.codigo) {
-      formErrors.codigo = 'El código es obligatorio (ej: P001)';
+    const errs = {};
+    if (!nombreSolicitante) {
+      errs.nombreSolicitante = "El nombre del solicitante es obligatorio";
     }
-    if (!productoData.nombre) {
-      formErrors.nombre = 'El nombre es obligatorio';
+    if (!folio) {
+      errs.folio = "El número de folio es obligatorio";
     }
-    if (
-      !productoData.precio_compra ||
-      parseFloat(productoData.precio_compra) <= 0
-    ) {
-      formErrors.precio_compra = 'El precio debe ser mayor a 0';
+    if (!nroCotizacion) {
+      errs.nroCotizacion = "El número de cotización es obligatorio"; // Validación para el nuevo campo
     }
-    if (
-      productoData.stock_actual === '' ||
-      parseFloat(productoData.stock_actual) < 0
-    ) {
-      formErrors.stock_actual = 'El stock actual no puede ser negativo';
+    const detallesErrors = detalleItems.map(item => {
+      const itemErr = {};
+      if (!item.producto) {
+        itemErr.producto = "Ingrese el insumo/material";
+      }
+      if (!item.cantidad || parseFloat(item.cantidad) <= 0) {
+        itemErr.cantidad = "La cantidad debe ser mayor a 0";
+      }
+      if (!item.cargo) {
+        itemErr.cargo = "El cargo es obligatorio";
+      }
+      if (item.stockBodega === '' || parseFloat(item.stockBodega) < 0) {
+        itemErr.stockBodega = "El stock en bodega es obligatorio y debe ser mayor o igual a 0";
+      }
+      return itemErr;
+    });
+    if (detallesErrors.some(e => Object.keys(e).length > 0)) {
+      errs.detalleItems = detallesErrors;
     }
-    if (
-      productoData.stock_minimo === '' ||
-      parseFloat(productoData.stock_minimo) < 0
-    ) {
-      formErrors.stock_minimo = 'El stock mínimo no puede ser negativo';
-    }
-    if (!productoData.ubicacion) {
-      formErrors.ubicacion =
-        'La ubicación es obligatoria (ej: Pasillo 3, estante 2)';
-    }
-    return formErrors;
+    return errs;
+  };
+
+  const handleAddDetalle = () => {
+    setDetalleItems([
+      ...detalleItems,
+      { producto: '', cantidad: '', cargo: '', stockBodega: '' },
+    ]);
+  };
+
+  const handleRemoveDetalle = (index) => {
+    const newDetails = [...detalleItems];
+    newDetails.splice(index, 1);
+    setDetalleItems(newDetails);
   };
 
   const handleSubmit = () => {
-    const validationErrors = validateForm();
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length === 0) {
-      onSubmit(productoData);
-      setProductoData({
-        codigo: '',
-        nombre: '',
-        descripcion: '',
-        categoria: '',
-        tipo: '',
-        precio_compra: '',
-        stock_actual: '',
-        stock_minimo: '',
-        consignacion: false,
-        nombre_consignacion: '',
-        ubicacion: '',
-      });
+    const errs = validateForm();
+    setErrors(errs);
+    if (Object.keys(errs).length === 0) {
+      // Se mapea "cargo" a "motivo" en el payload, incluyendo el nuevo campo "nro_cotizacion"
+      const payload = {
+        nombre_solicitante: nombreSolicitante,
+        folio: folio,
+        nro_cotizacion: nroCotizacion, // Se incluye en el payload
+        comentario: comentario,
+        detalles: detalleItems.map(item => ({
+          producto: item.producto,
+          cantidad: parseFloat(item.cantidad),
+          motivo: item.cargo,  // Mapeo de "cargo" a "motivo"
+          stock_bodega: parseFloat(item.stockBodega),
+        })),
+      };
+      onSubmit(payload);
+      // Resetear formulario
+      setNombreSolicitante('');
+      setFolio('');
+      setNroCotizacion(''); // Resetear el nuevo campo
+      setComentario('');
+      setDetalleItems([{ producto: '', cantidad: '', cargo: '', stockBodega: '' }]);
       setErrors({});
     }
   };
 
-  useEffect(() => {
-    if (open) setErrors({});
-  }, [open]);
-
   return (
-    <Dialog open={open} onClose={onClose} fullWidth>
-      <DialogTitle>Nuevo Producto</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Nueva Solicitud</DialogTitle>
       <DialogContent>
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Código"
-          fullWidth
-          variant="standard"
-          value={productoData.codigo}
-          onChange={(e) => setProductoData({ ...productoData, codigo: e.target.value })}
-          error={Boolean(errors.codigo)}
-          helperText={errors.codigo}
-        />
-        <TextField
-          margin="dense"
-          label="Nombre"
-          fullWidth
-          variant="standard"
-          value={productoData.nombre}
-          onChange={(e) => setProductoData({ ...productoData, nombre: e.target.value })}
-          error={Boolean(errors.nombre)}
-          helperText={errors.nombre}
-        />
-        <TextField
-          margin="dense"
-          label="Descripción"
-          fullWidth
-          variant="standard"
-          multiline
-          rows={2}
-          value={productoData.descripcion}
-          onChange={(e) => setProductoData({ ...productoData, descripcion: e.target.value })}
-        />
-        <TextField
-          margin="dense"
-          label="Categoría"
-          fullWidth
-          variant="standard"
-          value={productoData.categoria}
-          onChange={(e) => setProductoData({ ...productoData, categoria: e.target.value })}
-        />
-        <TextField
-          margin="dense"
-          label="Tipo"
-          fullWidth
-          variant="standard"
-          value={productoData.tipo}
-          onChange={(e) => setProductoData({ ...productoData, tipo: e.target.value })}
-        />
-        <TextField
-          margin="dense"
-          label="Precio Compra"
-          fullWidth
-          variant="standard"
-          type="number"
-          value={productoData.precio_compra}
-          onChange={(e) =>
-            setProductoData({ ...productoData, precio_compra: e.target.value })
-          }
-          error={Boolean(errors.precio_compra)}
-          helperText={errors.precio_compra}
-        />
-        <TextField
-          margin="dense"
-          label="Stock Actual"
-          fullWidth
-          variant="standard"
-          type="number"
-          value={productoData.stock_actual}
-          onChange={(e) =>
-            setProductoData({ ...productoData, stock_actual: e.target.value })
-          }
-          error={Boolean(errors.stock_actual)}
-          helperText={errors.stock_actual}
-        />
-        <TextField
-          margin="dense"
-          label="Stock Mínimo"
-          fullWidth
-          variant="standard"
-          type="number"
-          value={productoData.stock_minimo}
-          onChange={(e) =>
-            setProductoData({ ...productoData, stock_minimo: e.target.value })
-          }
-          error={Boolean(errors.stock_minimo)}
-          helperText={errors.stock_minimo}
-        />
-        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={productoData.consignacion}
-                onChange={(e) =>
-                  setProductoData({ ...productoData, consignacion: e.target.checked })
-                }
-              />
-            }
-            label="Consignación"
-          />
+        <Box sx={{ mt: 2 }}>
           <TextField
-            margin="dense"
-            label="Nombre Consignación"
+            autoFocus
+            label="Nombre del Solicitante"
             fullWidth
             variant="standard"
-            value={productoData.nombre_consignacion}
-            onChange={(e) =>
-              setProductoData({ ...productoData, nombre_consignacion: e.target.value })
-            }
-            disabled={!productoData.consignacion}
+            value={nombreSolicitante}
+            onChange={(e) => setNombreSolicitante(e.target.value)}
+            error={Boolean(errors.nombreSolicitante)}
+            helperText={errors.nombreSolicitante}
           />
         </Box>
-        <TextField
-          margin="dense"
-          label="Ubicación"
-          fullWidth
-          variant="standard"
-          value={productoData.ubicacion}
-          onChange={(e) =>
-            setProductoData({ ...productoData, ubicacion: e.target.value })
-          }
-          error={Boolean(errors.ubicacion)}
-          helperText={errors.ubicacion}
-        />
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="Número de Folio"
+            fullWidth
+            variant="standard"
+            value={folio}
+            onChange={(e) => setFolio(e.target.value)}
+            error={Boolean(errors.folio)}
+            helperText={errors.folio}
+          />
+        </Box>
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="N° Cotización"
+            fullWidth
+            variant="standard"
+            value={nroCotizacion}
+            onChange={(e) => setNroCotizacion(e.target.value)}
+            error={Boolean(errors.nroCotizacion)}
+            helperText={errors.nroCotizacion}
+          />
+        </Box>
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="Comentario"
+            fullWidth
+            variant="standard"
+            multiline
+            rows={3}
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            error={Boolean(errors.comentario)}
+            helperText={errors.comentario}
+          />
+        </Box>
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6">Detalles de la Solicitud</Typography>
+          {detalleItems.map((item, index) => (
+            <Box key={index} sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
+              <TextField
+                label="Insumo/Material"
+                variant="standard"
+                value={item.producto}
+                onChange={(e) => {
+                  const newDetails = [...detalleItems];
+                  newDetails[index].producto = e.target.value;
+                  setDetalleItems(newDetails);
+                }}
+                fullWidth
+                error={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  Boolean(errors.detalleItems[index].producto)
+                }
+                helperText={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  errors.detalleItems[index].producto
+                }
+              />
+              <TextField
+                label="Cantidad"
+                type="number"
+                variant="standard"
+                value={item.cantidad}
+                onChange={(e) => {
+                  const newDetails = [...detalleItems];
+                  newDetails[index].cantidad = e.target.value;
+                  setDetalleItems(newDetails);
+                }}
+                error={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  Boolean(errors.detalleItems[index].cantidad)
+                }
+                helperText={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  errors.detalleItems[index].cantidad
+                }
+              />
+              <TextField
+                label="Cargo"
+                variant="standard"
+                value={item.cargo}
+                onChange={(e) => {
+                  const newDetails = [...detalleItems];
+                  newDetails[index].cargo = e.target.value;
+                  setDetalleItems(newDetails);
+                }}
+                fullWidth
+                error={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  Boolean(errors.detalleItems[index].cargo)
+                }
+                helperText={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  errors.detalleItems[index].cargo
+                }
+              />
+              <TextField
+                label="Stock en Bodega"
+                type="number"
+                variant="standard"
+                value={item.stockBodega}
+                onChange={(e) => {
+                  const newDetails = [...detalleItems];
+                  newDetails[index].stockBodega = e.target.value;
+                  setDetalleItems(newDetails);
+                }}
+                error={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  Boolean(errors.detalleItems[index].stockBodega)
+                }
+                helperText={
+                  errors.detalleItems &&
+                  errors.detalleItems[index] &&
+                  errors.detalleItems[index].stockBodega
+                }
+              />
+              <Button variant="outlined" color="error" onClick={() => handleRemoveDetalle(index)}>
+                Eliminar
+              </Button>
+            </Box>
+          ))}
+          <Button variant="outlined" onClick={handleAddDetalle} sx={{ mt: 2 }}>
+            Agregar Insumo
+          </Button>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleSubmit}>Crear</Button>
+        <Button onClick={handleSubmit} variant="contained">
+          Crear Solicitud
+        </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-export default NuevoProductoModal;
+export default NuevaSolicitudModal;

@@ -111,6 +111,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]  # ✅ Esto es lo que faltaba
+
+
 # Seguridad extra en producción
 if not DEBUG:
     SESSION_COOKIE_SECURE = True

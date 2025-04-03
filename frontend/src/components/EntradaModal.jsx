@@ -30,12 +30,10 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
 
   useEffect(() => {
     if (motivo === 'orden de compra' && ordenCompra) {
-      // Cargar la OC seleccionada y filtrar ítems con cantidad pendiente
       axiosInstance
         .get(`ordenes/ordenes/${ordenCompra.id}/`)
         .then((res) => {
           const details = res.data.detalles || [];
-          // Filtrar ítems que tengan cantidad pendiente mayor a 0
           const filteredDetails = details.filter(detail => detail.cantidad_pendiente > 0);
           const items = filteredDetails.map((detail) => {
             const prod = productos.find(
@@ -45,7 +43,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
             );
             return {
               producto: prod || null,
-              cantidad: detail.cantidad_pendiente, // Usamos la cantidad pendiente
+              cantidad: detail.cantidad_pendiente,
               costo_unitario: detail.precio_unitario,
               editingPrecio: false,
               arrived: false,
@@ -87,7 +85,15 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
     const payload = {
       items: entradaItems.map((item) => ({
         producto: item.producto ? item.producto.id : null,
-        cantidad: item.arrived ? parseInt(item.cantidad, 10) : 0,
+        // ✅ Cambio aplicado aquí:
+        // Antes: cantidad: item.arrived ? parseInt(item.cantidad, 10) : 0,
+        // Esto causaba que si "arrived" no estaba presente (como en devoluciones), la cantidad fuera siempre 0.
+        cantidad:
+          motivo === 'orden de compra'
+            ? item.arrived
+              ? parseInt(item.cantidad, 10)
+              : 0
+            : parseInt(item.cantidad, 10),
         costo_unitario: item.editingPrecio
           ? parseFloat(item.costo_unitario)
           : item.producto
@@ -99,6 +105,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
       orden_compra: motivo === 'orden de compra' && ordenCompra ? ordenCompra.id : null,
       comentario,
     };
+
     onSubmit(payload);
     setMotivo('');
     setOrdenCompra(null);
@@ -125,6 +132,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
             </Select>
           </FormControl>
         </Box>
+
         {motivo === 'orden de compra' && (
           <Box sx={{ mt: 2 }}>
             <Button variant="outlined" onClick={() => setOpenOrdenesModal(true)}>
@@ -137,6 +145,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
             )}
           </Box>
         )}
+
         {motivo === 'orden de compra' && entradaItems.length > 0 && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="h6">Confirmar Ítems Pendientes de la OC</Typography>
@@ -180,6 +189,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
             ))}
           </Box>
         )}
+
         {motivo !== 'orden de compra' && (
           <>
             {entradaItems.map((item, index) => (
@@ -246,6 +256,7 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
             </Box>
           </>
         )}
+
         <Box sx={{ mt: 2 }}>
           <TextField
             label="Comentario"

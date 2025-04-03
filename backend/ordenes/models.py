@@ -21,9 +21,10 @@ class Solicitud(models.Model):
         ('rechazada', 'Rechazada'),
     )
     numero_solicitud = models.CharField(max_length=20, unique=True)
-    folio = models.CharField(max_length=20, blank=True, null=True)  # NUEVO CAMPO
+    folio = models.CharField(max_length=20, blank=True, null=True)  # Campo ya existente
+    nro_cotizacion = models.CharField(max_length=20, blank=True, null=True)  # NUEVO: Número de cotización
     nombre_solicitante = models.CharField(max_length=100)
-    stock_bodega = models.CharField(max_length=50, blank=True, null=True)  # NUEVO CAMPO
+    stock_bodega = models.CharField(max_length=50, blank=True, null=True)
     usuario_creador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='solicitudes')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -33,14 +34,12 @@ class Solicitud(models.Model):
     def __str__(self):
         return f"Solicitud {self.numero_solicitud} - {self.estado}"
 
-
 class SolicitudDetalle(models.Model):
     solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='detalles')
-    # Se permite escribir el producto manualmente; en el futuro se podría relacionar con el módulo de productos
     producto = models.CharField(max_length=200)
     cantidad = models.PositiveIntegerField()
     motivo = models.CharField(max_length=200)
-    stock_bodega = models.PositiveIntegerField(default=0)  # NUEVO CAMPO: Stock en bodega para cada ítem
+    stock_bodega = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"Detalle: {self.producto} - {self.cantidad}"
@@ -62,12 +61,6 @@ class OrdenesCompras(models.Model):
         return f"Orden {self.numero_orden} - {self.estado}"
 
     def actualizar_estado(self):
-        """
-        Actualiza el estado de la OC:
-          - "pendiente": si ningún detalle tiene entrada (cantidad_recibida == 0 en todos).
-          - "items pendientes": si al menos un detalle tiene entrada parcial (cantidad_recibida > 0, pero < cantidad).
-          - "completa": si en todos los detalles se ha recibido la totalidad.
-        """
         all_zero = True
         all_complete = True
         for detail in self.detalles.all():
@@ -83,13 +76,14 @@ class OrdenesCompras(models.Model):
             self.estado = 'items pendientes'
         self.save()
 
-
 class OrdenCompraDetalle(models.Model):
     orden = models.ForeignKey(OrdenesCompras, on_delete=models.CASCADE, related_name="detalles")
     cantidad = models.PositiveIntegerField()
-    detalle = models.CharField(max_length=200)  # Puede ser el código o nombre del producto
+    detalle = models.CharField(max_length=200)  # Almacenará el nombre (o código y nombre) del producto
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     cantidad_recibida = models.PositiveIntegerField(default=0)
+    # NUEVO: Campo para almacenar el código del producto
+    codigo_producto = models.CharField(max_length=50, blank=True, null=True)
 
     @property
     def total_item(self):

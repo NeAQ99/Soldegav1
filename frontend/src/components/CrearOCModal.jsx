@@ -1,4 +1,3 @@
-// src/components/CrearOCModal.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -8,11 +7,11 @@ import {
   Button,
   TextField,
   Box,
-  Typography,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Typography,
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 
@@ -27,7 +26,7 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
   const [plazoEntrega, setPlazoEntrega] = useState('');
   const [comentarios, setComentarios] = useState('');
 
-  // Detalle de la orden: cada línea incluye producto (string u objeto), cantidad y precio unitario.
+  // Detalle de la orden: cada línea incluye producto, cantidad y precio unitario.
   const [detalleItems, setDetalleItems] = useState([
     { producto: '', cantidad: '', precio_unitario: '' },
   ]);
@@ -43,10 +42,16 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
     "Pago a 30-60-90-120-150-180 días",
   ];
 
+  // Opciones para el campo empresa (únicamente estas dos)
+  const empresaOptions = [
+    "Inversiones Imperia SPA",
+    "Maquinarias Imperia SPA"
+  ];
+
   const validateForm = () => {
     const errs = {};
     if (!empresa) {
-      errs.empresa = 'El nombre de la empresa es obligatorio';
+      errs.empresa = 'Debe seleccionar una empresa';
     }
     if (!nroCotizacion) {
       errs.nroCotizacion = 'El número de cotización es obligatorio';
@@ -99,7 +104,7 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
     const errs = validateForm();
     setErrors(errs);
     if (Object.keys(errs).length === 0) {
-      // Armamos el payload: si el valor de producto es un objeto, se utiliza su nombre; de lo contrario, se toma la cadena ingresada.
+      // En el payload, se asigna "detalle" con el nombre del producto y se envía también "codigo_producto"
       const payload = {
         empresa,
         nro_cotizacion: nroCotizacion,
@@ -110,10 +115,10 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
         plazo_entrega: plazoEntrega,
         comentarios,
         detalles: detalleItems.map((item) => ({
-          // Se usa el campo "detalle" para almacenar la información del producto; en este caso, el nombre
           detalle: typeof item.producto === 'object' ? item.producto.nombre : item.producto,
           cantidad: parseInt(item.cantidad, 10),
           precio_unitario: parseFloat(item.precio_unitario),
+          codigo_producto: typeof item.producto === 'object' ? item.producto.codigo : "",
         })),
       };
       onSubmit(payload);
@@ -140,17 +145,26 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
       <DialogTitle>Nueva Orden de Compra</DialogTitle>
       <DialogContent>
         {/* Datos generales */}
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Empresa"
-          fullWidth
-          variant="standard"
-          value={empresa}
-          onChange={(e) => setEmpresa(e.target.value)}
-          error={Boolean(errors.empresa)}
-          helperText={errors.empresa}
-        />
+        <FormControl fullWidth margin="dense" variant="standard" error={Boolean(errors.empresa)}>
+          <InputLabel id="empresa-label">Empresa</InputLabel>
+          <Select
+            labelId="empresa-label"
+            value={empresa}
+            onChange={(e) => setEmpresa(e.target.value)}
+            label="Empresa"
+          >
+            {empresaOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+          {errors.empresa && (
+            <Typography variant="caption" color="error">
+              {errors.empresa}
+            </Typography>
+          )}
+        </FormControl>
         <TextField
           margin="dense"
           label="N° Cotización"
@@ -334,15 +348,6 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
           Crear
         </Button>
       </DialogActions>
-
-      {/* Aquí se integra el modal para seleccionar una OC pendiente */}
-      {/* Si deseas que el modal de OC se abra solo cuando el motivo es "orden de compra", verifica que se llame aquí */}
-      {/* Ejemplo: */}
-      {/* <OrdenesModal
-          open={openOrdenesModal}
-          onClose={() => setOpenOrdenesModal(false)}
-          onSelect={(order) => setOrdenCompra(order)}
-      /> */}
     </Dialog>
   );
 }

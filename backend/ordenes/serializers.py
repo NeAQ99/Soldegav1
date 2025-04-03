@@ -1,3 +1,4 @@
+
 from rest_framework import serializers
 from .models import Proveedor, Solicitud, OrdenesCompras, OrdenCompraDetalle, SolicitudDetalle
 from django.db.models import Max
@@ -10,21 +11,20 @@ class ProveedorSerializer(serializers.ModelSerializer):
 class SolicitudDetalleSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolicitudDetalle
-        # Incluimos stock_bodega
         fields = ['id', 'producto', 'cantidad', 'motivo', 'stock_bodega']
-        # Si deseas que se acepte "cargo" como alias de "motivo", se debe manejar en el front-end o en to_internal_value.
 
 class SolicitudSerializer(serializers.ModelSerializer):
     usuario_creador = serializers.StringRelatedField(read_only=True)
     detalles = SolicitudDetalleSerializer(many=True, required=False)
+    nro_cotizacion = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # NUEVO: Campo nro_cotizacion
 
     class Meta:
         model = Solicitud
-        # Incluimos folio
         fields = [
             'id', 
             'numero_solicitud', 
             'folio',
+            'nro_cotizacion',  # Se incluye en la lista de campos
             'nombre_solicitante', 
             'usuario_creador',
             'estado',
@@ -39,7 +39,7 @@ class SolicitudSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
-        # Generar el número de solicitud a partir de un número predeterminado
+        # Genera el número de solicitud automáticamente
         last_sol = Solicitud.objects.aggregate(max_num=Max('numero_solicitud'))['max_num']
         if last_sol:
             try:
@@ -60,7 +60,7 @@ class OrdenCompraDetalleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrdenCompraDetalle
-        fields = ['id', 'cantidad', 'detalle', 'precio_unitario', 'total_item', 'cantidad_pendiente']
+        fields = ['id', 'cantidad', 'detalle', 'precio_unitario', 'total_item', 'cantidad_pendiente', 'codigo_producto']
 
     def get_cantidad_pendiente(self, obj):
         return obj.cantidad_pendiente()
@@ -87,16 +87,30 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
-        last_order = self.Meta.model.objects.aggregate(max_num=Max('numero_orden'))['max_num']
+        empresa = validated_data.get('empresa')
+        if empresa == "Inversiones Imperia SPA":
+            last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 7698  # Número predeterminado para Inversiones Imperia SPA
+        elif empresa == "Maquinarias Imperia SPA":
+            last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 280  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
+        else:
+            raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
+
         if last_order:
             try:
                 new_num = int(last_order) + 1
             except ValueError:
-                new_num = 7684
+                new_num = start
         else:
-            new_num = 7684
+            new_num = start
+
         validated_data['numero_orden'] = str(new_num)
-        orden = super().create(validated_data)
+        orden = OrdenesCompras.objects.create(**validated_data)
         for detalle_data in detalles_data:
-            OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
+            codigo_producto = ""
+            if isinstance(detalle_data.get('detalle'), dict):
+                codigo_producto = detalle_data.get('detalle').get('codigo', '')
+                detalle_data['detalle'] = detalle_data.get('detalle').get('nombre', '')
+            OrdenCompraDetalle.objects.create(orden=orden, codigo_producto=codigo_producto, **detalle_data)
         return orden
