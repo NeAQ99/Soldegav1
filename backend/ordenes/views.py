@@ -291,10 +291,15 @@ class OrdenesPDFView(viewsets.ViewSet):
             "Rut:", orden.proveedor.rut if orden.proveedor else "n/a",
             "Domicilio:", orden.proveedor.domicilio if orden.proveedor else "n/a"
         ])
-        # Nueva fila: se muestra el Folio debajo de Domicilio y la Ciudad en la misma fila para equilibrar la columna derecha
+        # Nueva fila que muestra "Folio" y "Cargo" en dos columnas
         orden_data.append([
             "Folio:", orden.folio if hasattr(orden, 'folio') and orden.folio else "n/a",
-            "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a"
+            "Cargo:", orden.cargo if orden.cargo else "n/a"
+        ])
+        # Última fila para mostrar la Ciudad
+        orden_data.append([
+            "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a",
+            "", ""
         ])
 
         header_table_order = Table(orden_data, colWidths=[100, 150, 100, 150])
