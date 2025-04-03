@@ -87,9 +87,10 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
         empresa = validated_data.get('empresa')
-        if empresa == "Inversiones Imperia Spa":
-            last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia Spa").aggregate(max_num=Max('numero_orden'))['max_num']
-            start = 7698  # Número predeterminado para Inversiones Imperia SPA
+        if empresa.lower() == "inversiones imperia spa".lower():
+            last_order = self.Meta.model.objects.filter(empresa__iexact="Inversiones Imperia Spa").aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 7698
+
         elif empresa == "Maquinarias Imperia SPA":
             last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
             start = 265  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
