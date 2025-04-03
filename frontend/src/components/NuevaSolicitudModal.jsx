@@ -14,6 +14,7 @@ import {
 function NuevaSolicitudModal({ open, onClose, onSubmit }) {
   const [nombreSolicitante, setNombreSolicitante] = useState('');
   const [folio, setFolio] = useState('');
+  const [nroCotizacion, setNroCotizacion] = useState(''); // Nuevo estado para el número de cotización
   const [comentario, setComentario] = useState('');
   // Se añade el campo stockBodega para cada detalle
   const [detalleItems, setDetalleItems] = useState([
@@ -34,6 +35,9 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
     }
     if (!folio) {
       errs.folio = "El número de folio es obligatorio";
+    }
+    if (!nroCotizacion) {
+      errs.nroCotizacion = "El número de cotización es obligatorio";
     }
     const detallesErrors = detalleItems.map(item => {
       const itemErr = {};
@@ -78,11 +82,12 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
       const payload = {
         nombre_solicitante: nombreSolicitante,
         folio: folio,
+        nro_cotizacion: nroCotizacion, // Se envía el número de cotización
         comentario: comentario,
         detalles: detalleItems.map(item => ({
           producto: item.producto,
           cantidad: parseFloat(item.cantidad),
-          motivo: item.cargo,  // Aquí asignamos el valor de "cargo" al campo "motivo"
+          motivo: item.cargo,  // Se mapea "cargo" a "motivo"
           stock_bodega: parseFloat(item.stockBodega),
         })),
       };
@@ -90,6 +95,7 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
       // Resetear formulario
       setNombreSolicitante('');
       setFolio('');
+      setNroCotizacion('');
       setComentario('');
       setDetalleItems([{ producto: '', cantidad: '', cargo: '', stockBodega: '' }]);
       setErrors({});
@@ -123,6 +129,18 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
             helperText={errors.folio}
           />
         </Box>
+        {/* Campo para N° Cotización */}
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="N° Cotización"
+            fullWidth
+            variant="standard"
+            value={nroCotizacion}
+            onChange={(e) => setNroCotizacion(e.target.value)}
+            error={Boolean(errors.nroCotizacion)}
+            helperText={errors.nroCotizacion}
+          />
+        </Box>
         <Box sx={{ mt: 2 }}>
           <TextField
             label="Comentario"
@@ -139,7 +157,10 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6">Detalles de la Solicitud</Typography>
           {detalleItems.map((item, index) => (
-            <Box key={index} sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
+            <Box
+              key={index}
+              sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}
+            >
               <TextField
                 label="Insumo/Material"
                 variant="standard"
@@ -224,7 +245,11 @@ function NuevaSolicitudModal({ open, onClose, onSubmit }) {
                   errors.detalleItems[index].stockBodega
                 }
               />
-              <Button variant="outlined" color="error" onClick={() => handleRemoveDetalle(index)}>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => handleRemoveDetalle(index)}
+              >
                 Eliminar
               </Button>
             </Box>
