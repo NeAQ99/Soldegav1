@@ -1,4 +1,3 @@
-
 from rest_framework import serializers
 from .models import Proveedor, Solicitud, OrdenesCompras, OrdenCompraDetalle, SolicitudDetalle
 from django.db.models import Max
@@ -16,7 +15,7 @@ class SolicitudDetalleSerializer(serializers.ModelSerializer):
 class SolicitudSerializer(serializers.ModelSerializer):
     usuario_creador = serializers.StringRelatedField(read_only=True)
     detalles = SolicitudDetalleSerializer(many=True, required=False)
-    nro_cotizacion = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # NUEVO: Campo nro_cotizacion
+    nro_cotizacion = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Solicitud
@@ -24,7 +23,7 @@ class SolicitudSerializer(serializers.ModelSerializer):
             'id', 
             'numero_solicitud', 
             'folio',
-            'nro_cotizacion',  # Se incluye en la lista de campos
+            'nro_cotizacion',
             'nombre_solicitante', 
             'usuario_creador',
             'estado',
@@ -39,7 +38,6 @@ class SolicitudSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
-        # Genera el número de solicitud automáticamente
         last_sol = Solicitud.objects.aggregate(max_num=Max('numero_solicitud'))['max_num']
         if last_sol:
             try:
@@ -85,35 +83,32 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             'numero_orden': {'read_only': True},
         }
 
-        def create(self, validated_data):
-            detalles_data = validated_data.pop('detalles', [])
-            empresa = validated_data.get('empresa')
-            if empresa == "Inversiones Imperia SPA":
-                last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-                start = 350  # Número predeterminado para Inversiones Imperia SPA
-            elif empresa == "Maquinarias Imperia SPA":
-                last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-                start = 350  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
-            else:
-                raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
+    # ESTE MÉTODO CREATE DEBE ESTAR FUERA DE LA CLASE Meta, A NIVEL DE LA CLASE
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles', [])
+        empresa = validated_data.get('empresa')
+        if empresa == "Inversiones Imperia SPA":
+            last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 350  # Número predeterminado para Inversiones Imperia SPA
+        elif empresa == "Maquinarias Imperia SPA":
+            last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 350  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
+        else:
+            raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
 
-            if last_order:
-                try:
-                    new_num = int(last_order) + 1
-                except ValueError:
-                    new_num = start
-            else:
+        if last_order:
+            try:
+                new_num = int(last_order) + 1
+            except ValueError:
                 new_num = start
+        else:
+            new_num = start
 
-            validated_data['numero_orden'] = str(new_num)
-            orden = self.Meta.model.objects.create(**validated_data)
-            for detalle_data in detalles_data:
-                # Si 'detalle' viene como diccionario, extraemos 'codigo' y 'nombre'
-                if isinstance(detalle_data.get('detalle'), dict):
-                    detalle_data['codigo_producto'] = detalle_data['detalle'].get('codigo', '')
-                    detalle_data['detalle'] = detalle_data['detalle'].get('nombre', '')
-                # Creamos el objeto pasando solo el diccionario, que ya incluye 'codigo_producto' si corresponde.
-                OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
-            return orden
-
-
+        validated_data['numero_orden'] = str(new_num)
+        orden = OrdenesCompras.objects.create(**validated_data)
+        for detalle_data in detalles_data:
+            if isinstance(detalle_data.get('detalle'), dict):
+                detalle_data['codigo_producto'] = detalle_data['detalle'].get('codigo', '')
+                detalle_data['detalle'] = detalle_data['detalle'].get('nombre', '')
+            OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
+        return orden
