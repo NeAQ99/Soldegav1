@@ -90,10 +90,10 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             empresa = validated_data.get('empresa')
             if empresa == "Inversiones Imperia SPA":
                 last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-                start = 7698  # Número predeterminado para Inversiones Imperia SPA
+                start = 350  # Número predeterminado para Inversiones Imperia SPA
             elif empresa == "Maquinarias Imperia SPA":
                 last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-                start = 280  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
+                start = 350  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
             else:
                 raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
 
@@ -106,11 +106,14 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
                 new_num = start
 
             validated_data['numero_orden'] = str(new_num)
-            orden = OrdenesCompras.objects.create(**validated_data)
+            orden = self.Meta.model.objects.create(**validated_data)
             for detalle_data in detalles_data:
+                # Si 'detalle' viene como diccionario, extraemos 'codigo' y 'nombre'
                 if isinstance(detalle_data.get('detalle'), dict):
                     detalle_data['codigo_producto'] = detalle_data['detalle'].get('codigo', '')
                     detalle_data['detalle'] = detalle_data['detalle'].get('nombre', '')
+                # Creamos el objeto pasando solo el diccionario, que ya incluye 'codigo_producto' si corresponde.
                 OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
             return orden
+
 
