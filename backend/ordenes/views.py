@@ -11,7 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-
+from django.db.models import Max
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle, Solicitud, Proveedor
 from .serializers import (
     ProveedorSerializer,
@@ -19,7 +19,7 @@ from .serializers import (
     OrdenesComprasSerializer,
     OrdenCompraDetalleSerializer,
 )
-from django.db.models import Max
+
 
 # Helper function para formatear números con separador de miles (punto) y decimal (coma)
 def format_currency(value):
@@ -220,7 +220,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         else:
             detalle_data.append(["-", "-", "No hay detalles", "-", "-"])
         
-        total_neto = sum([float(detalle.cantidad * detalle.precio_unitario) for detalle in detalles])
+        total_neto = sum([Decimal(detalle.cantidad) * detalle.precio_unitario for detalle in detalles])
         iva = total_neto * Decimal('0.19')
         total_orden = total_neto + iva
 
