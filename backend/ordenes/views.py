@@ -165,7 +165,7 @@ class SolicitudPDFView(viewsets.ViewSet):
         response.write(pdf)
         return response
     
-  class OrdenesPDFView(viewsets.ViewSet):
+class OrdenesPDFView(viewsets.ViewSet):
     queryset = OrdenesCompras.objects.all().order_by('-fecha')
 
     serializer_class = OrdenesComprasSerializer
