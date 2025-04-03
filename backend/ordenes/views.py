@@ -252,7 +252,7 @@ class OrdenesPDFView(viewsets.ViewSet):
 
         header_data = [[
             logo_element if logo_element else "",
-            Paragraph(f"<b style='font-size:18px;'>Folio: {orden.nro_cotizacion if orden.nro_cotizacion else 'n/a'}</b>", styles['Normal'])
+            
         ]]
         header_table = Table(header_data, colWidths=[150, 350])
         header_table.setStyle(TableStyle([
@@ -280,10 +280,16 @@ class OrdenesPDFView(viewsets.ViewSet):
             "Rut:", orden.proveedor.rut if orden.proveedor else "n/a",
             "Domicilio:", orden.proveedor.domicilio if orden.proveedor else "n/a"
         ])
+        # Nueva fila para mostrar el Folio debajo de Domicilio
+        orden_data.append([
+            "Folio:", orden.folio if hasattr(orden, 'folio') and orden.folio else "n/a",
+            "", ""
+        ])
         orden_data.append([
             "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a",
             "", ""
         ])
+
         header_table_order = Table(orden_data, colWidths=[100, 150, 100, 150])
         header_style = TableStyle([
             ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
