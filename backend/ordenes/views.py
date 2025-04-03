@@ -11,7 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from django.db.models import Max
+
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle, Solicitud, Proveedor
 from .serializers import (
     ProveedorSerializer,
@@ -19,7 +19,7 @@ from .serializers import (
     OrdenesComprasSerializer,
     OrdenCompraDetalleSerializer,
 )
-
+from django.db.models import Max
 
 # Helper function para formatear números con separador de miles (punto) y decimal (coma)
 def format_currency(value):
@@ -92,7 +92,6 @@ class SolicitudPDFView(viewsets.ViewSet):
         styles = getSampleStyleSheet()
         elements = []
 
-        # Cargar logo si existe
         logo_path = finders.find("images/logo.png")
         logo_element = None
         if logo_path:
@@ -114,7 +113,7 @@ class SolicitudPDFView(viewsets.ViewSet):
         elements.append(header_table)
         elements.append(Spacer(1, 12))
         
-        # Tabla de información con el nuevo campo "N° Cotización"
+        # Información de la solicitud, incluyendo N° Cotización
         info_data = [
             ["Fecha:", solicitud.fecha_creacion.strftime("%d/%m/%Y")],
             ["Solicitante:", solicitud.nombre_solicitante],
@@ -132,6 +131,7 @@ class SolicitudPDFView(viewsets.ViewSet):
         elements.append(Paragraph("Solicitud de Compra de Materiales e Insumos", styles['Title']))
         elements.append(Spacer(1, 12))
         
+        # Generación de la tabla de detalles con separación del código
         detalle_table = Table(detalle_data, repeatRows=1, colWidths=[50, 80, 200, 100, 80])
         detalle_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.darkgray),
@@ -166,6 +166,10 @@ class SolicitudPDFView(viewsets.ViewSet):
         return response
 
 class OrdenesComprasViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar las órdenes de compra.
+    Se asigna el correlativo de forma independiente según la empresa.
+    """
     queryset = OrdenesCompras.objects.all().order_by('-fecha')
     serializer_class = OrdenesComprasSerializer
 
@@ -183,7 +187,7 @@ class OrdenesComprasViewSet(viewsets.ModelViewSet):
         )
         orders_to_update.update(estado='inactiva')
         return super().list(request, *args, **kwargs)
-    
+
 class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
     queryset = OrdenCompraDetalle.objects.all()
     serializer_class = OrdenCompraDetalleSerializer
@@ -206,8 +210,14 @@ class OrdenesPDFView(viewsets.ViewSet):
         if detalles:
             for detalle in detalles:
                 cantidad = detalle.cantidad
-                codigo = detalle.codigo_producto if detalle.codigo_producto else "-"
-                producto = detalle.detalle
+                # Si no hay 'codigo_producto' y el campo 'detalle' contiene ":", separamos la cadena
+                if not detalle.codigo_producto and ":" in detalle.detalle:
+                    parts = detalle.detalle.split(":", 1)
+                    codigo = parts[0].strip()
+                    producto = parts[1].strip()
+                else:
+                    codigo = detalle.codigo_producto if detalle.codigo_producto else "-"
+                    producto = detalle.detalle
                 precio_unitario = float(detalle.precio_unitario)
                 total_producto = float(detalle.total_item)
                 detalle_data.append([

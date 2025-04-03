@@ -85,32 +85,32 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             'numero_orden': {'read_only': True},
         }
 
-    def create(self, validated_data):
-        detalles_data = validated_data.pop('detalles', [])
-        empresa = validated_data.get('empresa')
-        if empresa == "Inversiones Imperia SPA":
-            last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-            start = 7698  # Número predeterminado para Inversiones Imperia SPA
-        elif empresa == "Maquinarias Imperia SPA":
-            last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-            start = 280  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
-        else:
-            raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
+        def create(self, validated_data):
+            detalles_data = validated_data.pop('detalles', [])
+            empresa = validated_data.get('empresa')
+            if empresa == "Inversiones Imperia SPA":
+                last_order = self.Meta.model.objects.filter(empresa="Inversiones Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+                start = 7698  # Número predeterminado para Inversiones Imperia SPA
+            elif empresa == "Maquinarias Imperia SPA":
+                last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
+                start = 280  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
+            else:
+                raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia SPA' y 'Maquinarias Imperia SPA'.")
 
-        if last_order:
-            try:
-                new_num = int(last_order) + 1
-            except ValueError:
+            if last_order:
+                try:
+                    new_num = int(last_order) + 1
+                except ValueError:
+                    new_num = start
+            else:
                 new_num = start
-        else:
-            new_num = start
 
-        validated_data['numero_orden'] = str(new_num)
-        orden = OrdenesCompras.objects.create(**validated_data)
-        for detalle_data in detalles_data:
-            codigo_producto = ""
-            if isinstance(detalle_data.get('detalle'), dict):
-                codigo_producto = detalle_data.get('detalle').get('codigo', '')
-                detalle_data['detalle'] = detalle_data.get('detalle').get('nombre', '')
-            OrdenCompraDetalle.objects.create(orden=orden, codigo_producto=codigo_producto, **detalle_data)
-        return orden
+            validated_data['numero_orden'] = str(new_num)
+            orden = OrdenesCompras.objects.create(**validated_data)
+            for detalle_data in detalles_data:
+                if isinstance(detalle_data.get('detalle'), dict):
+                    detalle_data['codigo_producto'] = detalle_data['detalle'].get('codigo', '')
+                    detalle_data['detalle'] = detalle_data['detalle'].get('nombre', '')
+                OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
+            return orden
+
