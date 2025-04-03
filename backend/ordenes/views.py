@@ -195,6 +195,7 @@ class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
 class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
+        # Se obtiene el parámetro 'orden_id' de la query string
         orden_id = request.query_params.get('orden_id')
         if not orden_id:
             return Response({"error": "Se requiere orden_id"}, status=status.HTTP_400_BAD_REQUEST)
@@ -203,14 +204,18 @@ class OrdenesPDFView(viewsets.ViewSet):
         except OrdenesCompras.DoesNotExist:
             return Response({"error": "Orden no encontrada"}, status=status.HTTP_404_NOT_FOUND)
         
+        # Se obtienen los detalles asociados a la orden
         detalles = orden.detalles.all()
-        # Nuevo header que incluye la columna "Código"
+
+        # Se define el header de la tabla de detalles, incluyendo la columna "Código"
         detalle_header = ["Cantidad", "Código", "Producto / Detalle", "Precio Unitario", "Total Producto"]
         detalle_data = [detalle_header]
+
+        # Procesar cada detalle para extraer y separar el código si es necesario
         if detalles:
             for detalle in detalles:
                 cantidad = detalle.cantidad
-                # Si no hay 'codigo_producto' y el campo 'detalle' contiene ":", separamos la cadena
+                # Si no hay 'codigo_producto' y en 'detalle' se encuentra ":", se separa en código y nombre
                 if not detalle.codigo_producto and ":" in detalle.detalle:
                     parts = detalle.detalle.split(":", 1)
                     codigo = parts[0].strip()
@@ -229,16 +234,19 @@ class OrdenesPDFView(viewsets.ViewSet):
                 ])
         else:
             detalle_data.append(["-", "-", "No hay detalles", "-", "-"])
-        
+
+        # Cálculo de totales usando Decimal para evitar problemas de precisión
         total_neto = sum([Decimal(detalle.cantidad) * detalle.precio_unitario for detalle in detalles])
         iva = total_neto * Decimal('0.19')
         total_orden = total_neto + iva
 
+        # Inicializa el buffer para el PDF y crea el documento
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
         elements = []
 
+        # Cargar el logo
         logo_path = finders.find("images/logo.png")
         logo_element = None
         if logo_path:
@@ -250,19 +258,22 @@ class OrdenesPDFView(viewsets.ViewSet):
         else:
             print("Logo no encontrado en static/images/logo.png")
 
+        # Header: se muestra el logo (sin el folio, que se mostrará en la tabla de información)
         header_data = [[
-            logo_element if logo_element else "",
-            
+            logo_element if logo_element else ""
         ]]
-        header_table = Table(header_data, colWidths=[150, 350])
+        # Ajusta los anchos de columna (por ejemplo, [150, 350] si se desea espacio para otro contenido, pero aquí solo usamos el logo)
+        header_table = Table(header_data, colWidths=[150])
         header_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('ALIGN', (1,0), (1,0), 'RIGHT'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            # Se ajusta el padding para controlar el espacio
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
         ]))
         elements.append(header_table)
         elements.append(Spacer(1, 12))
 
+        # Construcción de la tabla de información de la orden
+        # Se muestra N° Orden, Fecha, N° Cotización, Empresa, Merc. Puesta en, Proveedor, Rut, Domicilio, Folio y Ciudad
         orden_data = []
         orden_data.append([
             "N° Orden:", orden.numero_orden,
@@ -280,44 +291,43 @@ class OrdenesPDFView(viewsets.ViewSet):
             "Rut:", orden.proveedor.rut if orden.proveedor else "n/a",
             "Domicilio:", orden.proveedor.domicilio if orden.proveedor else "n/a"
         ])
-        # Nueva fila para mostrar el Folio debajo de Domicilio
+        # Nueva fila: se muestra el Folio debajo de Domicilio y la Ciudad en la misma fila para equilibrar la columna derecha
         orden_data.append([
             "Folio:", orden.folio if hasattr(orden, 'folio') and orden.folio else "n/a",
-            "", ""
-        ])
-        orden_data.append([
-            "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a",
-            "", ""
+            "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a"
         ])
 
         header_table_order = Table(orden_data, colWidths=[100, 150, 100, 150])
         header_style = TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BACKGROUND', (0,0), (0,0), colors.whitesmoke),
-            ('BACKGROUND', (0,1), (0,1), colors.whitesmoke),
-            ('BACKGROUND', (0,2), (0,2), colors.whitesmoke),
-            ('BACKGROUND', (0,3), (0,3), colors.whitesmoke),
-            ('BACKGROUND', (0,4), (0,4), colors.whitesmoke),
-            ('BACKGROUND', (2,0), (2,0), colors.whitesmoke),
-            ('BACKGROUND', (2,1), (2,1), colors.whitesmoke),
-            ('BACKGROUND', (2,2), (2,2), colors.whitesmoke),
-            ('BACKGROUND', (2,3), (2,3), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            # Se aplican fondos a las etiquetas para mayor claridad
+            ('BACKGROUND', (0, 0), (0, 0), colors.whitesmoke),
+            ('BACKGROUND', (0, 1), (0, 1), colors.whitesmoke),
+            ('BACKGROUND', (0, 2), (0, 2), colors.whitesmoke),
+            ('BACKGROUND', (0, 3), (0, 3), colors.whitesmoke),
+            ('BACKGROUND', (0, 4), (0, 4), colors.whitesmoke),
+            ('BACKGROUND', (2, 0), (2, 0), colors.whitesmoke),
+            ('BACKGROUND', (2, 1), (2, 1), colors.whitesmoke),
+            ('BACKGROUND', (2, 2), (2, 2), colors.whitesmoke),
+            ('BACKGROUND', (2, 3), (2, 3), colors.whitesmoke),
         ])
         header_table_order.setStyle(header_style)
         elements.append(header_table_order)
         elements.append(Spacer(1, 12))
 
+        # Tabla de detalles de la orden
         detalle_table = Table(detalle_data, repeatRows=1)
         detalle_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.grey),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         elements.append(detalle_table)
         elements.append(Spacer(1, 12))
 
+        # Tabla de totales
         totales_data = [
             ["Total Neto:", f"${format_currency(total_neto)}"],
             ["IVA (19%):", f"${format_currency(iva)}"],
@@ -325,12 +335,13 @@ class OrdenesPDFView(viewsets.ViewSet):
         ]
         totales_table = Table(totales_data, colWidths=[150, 100], hAlign='RIGHT')
         totales_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (0,-1), colors.lightgrey),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ]))
         elements.append(totales_table)
         elements.append(Spacer(1, 12))
 
+        # Tabla de información adicional (Plazo, Forma de pago, Comentarios)
         additional_data = [
             ["Plazo de entrega:", orden.plazo_entrega],
             ["Forma de pago:", orden.forma_pago],
@@ -338,25 +349,27 @@ class OrdenesPDFView(viewsets.ViewSet):
         ]
         additional_table = Table(additional_data, colWidths=[150, 300], hAlign='LEFT')
         additional_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (0,-1), colors.lightgrey),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ]))
         elements.append(additional_table)
         elements.append(Spacer(1, 24))
 
+        # Tabla de firmas
         firmas_data = [
             ["Jefe Faena", "Solicitante", "Contabilidad"],
             ["________________________", "________________________", "________________________"],
         ]
         firmas_table = Table(firmas_data, colWidths=[150, 150, 150], hAlign='CENTER')
         firmas_table.setStyle(TableStyle([
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('FONTSIZE', (0,0), (-1,0), 12),
-            ('FONTSIZE', (0,1), (-1,1), 10),
-            ('TOPPADDING', (0,1), (-1,1), 12),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 1), (-1, 1), 10),
+            ('TOPPADDING', (0, 1), (-1, 1), 12),
         ]))
         elements.append(firmas_table)
 
+        # Se construye el PDF, se obtiene el contenido y se retorna como respuesta HTTP
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()
