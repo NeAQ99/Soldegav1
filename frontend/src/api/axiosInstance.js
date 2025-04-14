@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const axiosInstance = axios.create({
   baseURL: 'https://soldega-prod.rj.r.appspot.com/api/',
-  timeout: 5000,
+  timeout: 20000, // 20 segundos de timeout
   headers: {
     'Content-Type': 'application/json',
     accept: 'application/json',

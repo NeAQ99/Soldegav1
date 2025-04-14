@@ -230,20 +230,26 @@ function MovimientosPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {entradas.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((entrada) => (
-                  <TableRow key={entrada.id}>
-                    <TableCell>{getProductoCodigo(entrada.producto)}</TableCell>
-                    <TableCell>{getProductoNombre(entrada.producto)}</TableCell>
-                    <TableCell>{entrada.cantidad}</TableCell>
-                    <TableCell>{entrada.motivo}</TableCell>
-                    <TableCell>{new Date(entrada.fecha).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <Button variant="outlined" onClick={() => handleVerDetalle(entrada)}>
-                        Ver Detalle
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {entradas
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((entrada) => (
+                    <TableRow key={entrada.id}>
+                      <TableCell>{getProductoCodigo(entrada.producto)}</TableCell>
+                      <TableCell>{getProductoNombre(entrada.producto)}</TableCell>
+                      <TableCell>{entrada.cantidad}</TableCell>
+                      <TableCell>
+                        {entrada.motivo === 'recepcion_oc' && entrada.orden_compra
+                          ? `OC ${entrada.orden_compra}`
+                          : entrada.motivo}
+                      </TableCell>
+                      <TableCell>{new Date(entrada.fecha).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button variant="outlined" onClick={() => handleVerDetalle(entrada)}>
+                          Ver Detalle
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </Paper>

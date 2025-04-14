@@ -246,31 +246,39 @@ class OrdenesPDFView(viewsets.ViewSet):
         styles = getSampleStyleSheet()
         elements = []
 
-        # Cargar el logo
+               # Cargar el logo
         logo_path = finders.find("images/logo.png")
         logo_element = None
         if logo_path:
             try:
                 logo_element = Image(logo_path, width=100, height=50)
-                logo_element.hAlign = 'LEFT'
+                logo_element.hAlign = 'CENTER'
             except Exception as e:
                 print("Error cargando el logo:", e)
         else:
             print("Logo no encontrado en static/images/logo.png")
 
-        # Header: se muestra el logo (sin el folio, que se mostrará en la tabla de información)
+        # Crear el texto de la dirección (uno abajo del otro)
+        address_text = "52.001.387-3<br/>Bolivar #202<br/>Edificio Finanzas, Oficina #511"
+        address_para = Paragraph(address_text, styles["Normal"])
+
+        # Crear una tabla de encabezado de dos columnas: 
+        # la primera con el logo y la segunda con la dirección
         header_data = [[
-            logo_element if logo_element else ""
+            logo_element if logo_element else "",
+            address_para
         ]]
-        # Ajusta los anchos de columna (por ejemplo, [150, 350] si se desea espacio para otro contenido, pero aquí solo usamos el logo)
-        header_table = Table(header_data, colWidths=[150])
+        # Define los anchos de columna según lo que necesites, por ejemplo 200 y 300
+        header_table = Table(header_data, colWidths=[200, 300])
         header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            # Se ajusta el padding para controlar el espacio
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
         ]))
         elements.append(header_table)
         elements.append(Spacer(1, 12))
+
 
         # Construcción de la tabla de información de la orden
         # Se muestra N° Orden, Fecha, N° Cotización, Empresa, Merc. Puesta en, Proveedor, Rut, Domicilio, Folio y Ciudad

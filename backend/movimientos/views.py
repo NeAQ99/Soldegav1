@@ -115,22 +115,25 @@ class SalidaViewSet(viewsets.ModelViewSet):
 
 
 
+def format_currency(value):
+    s = "{:,.2f}".format(value)
+    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
+    return s
+
 class ReportePDFView(viewsets.ViewSet):
     """
     Endpoint para generar el PDF del movimiento (entradas o salidas).
-    Parámetros esperados:
+    Parámetros:
       - tipo: 'entrada' o 'salida'
       - start_date y end_date en formato YYYY-MM-DD
-      - consignacion (opcional): si es "true", se filtrarán solo los movimientos de consignación.
-    
-    Si no se envía consignacion o su valor no es "true", se mostrarán todos los movimientos.
+      - consignacion (opcional)
     """
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
         tipo = request.query_params.get('tipo', 'entrada')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        consignacion_param = request.query_params.get('consignacion')  # Parámetro opcional
+        consignacion_param = request.query_params.get('consignacion')
 
         if not start_date or not end_date:
             return Response({"error": "Se requieren start_date y end_date"}, status=status.HTTP_400_BAD_REQUEST)
@@ -139,35 +142,37 @@ class ReportePDFView(viewsets.ViewSet):
             end = datetime.strptime(end_date, '%Y-%m-%d')
         except ValueError:
             return Response({"error": "Formato de fecha inválido. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Filtrado base por fecha
+
         if tipo == 'entrada':
             queryset = Entrada.objects.filter(
                 fecha__date__gte=start.date(), 
                 fecha__date__lte=end.date()
             )
-            header = ['Cantidad', 'Producto', 'Motivo', 'Valor Producto', 'Total Producto']
+            # Cambiamos el header para entradas, mostrando "Motivo / Orden"
+            header = ['Cantidad', 'Producto', 'Motivo / Orden', 'Valor Producto', 'Total Producto']
         else:
             queryset = Salida.objects.filter(
                 fecha__date__gte=start.date(), 
                 fecha__date__lte=end.date()
             )
             header = ['Cantidad', 'Producto', 'Cargo', 'Valor Producto', 'Total Producto']
-        
-        # Si se envía consignacion con valor "true", filtrar movimientos de productos de consignación
+
         if consignacion_param and consignacion_param.lower() == "true":
             queryset = queryset.filter(producto__consignacion=True)
-        
+
         total_movimientos = 0
         total_valor = 0
         data = [header]
-        
-        # Construcción de filas según el tipo
+
+        # Para entradas, si el motivo es "recepcion_oc" y existe orden_compra, mostrar el nro de orden
         if tipo == 'entrada':
             for entrada in queryset:
                 cantidad = entrada.cantidad
                 producto = f"{entrada.producto.codigo} - {entrada.producto.nombre}"
-                motivo = entrada.motivo
+                if entrada.motivo == 'recepcion_oc' and hasattr(entrada, 'orden_compra') and entrada.orden_compra:
+                    motivo_display = entrada.orden_compra.numero_orden
+                else:
+                    motivo_display = entrada.motivo
                 valor_producto = float(entrada.costo_unitario)
                 total_producto = cantidad * valor_producto
                 total_movimientos += cantidad
@@ -175,11 +180,11 @@ class ReportePDFView(viewsets.ViewSet):
                 data.append([
                     str(cantidad),
                     producto,
-                    motivo,
-                    f"${valor_producto:.2f}",
-                    f"${total_producto:.2f}"
+                    motivo_display,
+                    f"${format_currency(valor_producto)}",
+                    f"${format_currency(total_producto)}"
                 ])
-            data.append(['', '', 'Total Entradas:', str(total_movimientos), f"${total_valor:.2f}"])
+            data.append(['', '', 'Total Entradas:', str(total_movimientos), f"${format_currency(total_valor)}"])
         else:
             for salida in queryset:
                 cantidad = salida.cantidad
@@ -193,12 +198,12 @@ class ReportePDFView(viewsets.ViewSet):
                     str(cantidad),
                     producto,
                     cargo,
-                    f"${valor_producto:.2f}",
-                    f"${total_producto:.2f}"
+                    f"${format_currency(valor_producto)}",
+                    f"${format_currency(total_producto)}"
                 ])
-            data.append(['', '', 'Total Salidas:', str(total_movimientos), f"${total_valor:.2f}"])
-        
-        # Generación del PDF
+            data.append(['', '', 'Total Salidas:', str(total_movimientos), f"${format_currency(total_valor)}"])
+
+        # Configurar el documento PDF
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
@@ -206,6 +211,8 @@ class ReportePDFView(viewsets.ViewSet):
         title = Paragraph("Informe de Movimiento", styles['Title'])
         elements.append(title)
         elements.append(Spacer(1, 40))
+
+        # Crear la tabla con los datos
         table = Table(data, colWidths=[60, 150, 100, 80, 80])
         table_style = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.gray),
@@ -217,6 +224,7 @@ class ReportePDFView(viewsets.ViewSet):
         ])
         table.setStyle(table_style)
         elements.append(table)
+
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()

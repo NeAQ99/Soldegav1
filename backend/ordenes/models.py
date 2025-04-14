@@ -4,10 +4,10 @@ from django.db.models import Sum
 from bodega.models import Producto
 
 class Proveedor(models.Model):
-    nombre_proveedor = models.CharField(max_length=100, unique=True)
-    rut = models.CharField(max_length=20, unique=True)
+    nombre_proveedor = models.CharField(max_length=100, unique=True, db_index=True)
+    rut = models.CharField(max_length=20, unique=True, db_index=True)
     domicilio = models.CharField(max_length=200)
-    ubicacion = models.CharField(max_length=100)
+    ubicacion = models.CharField(max_length=100, db_index=True)
     email = models.EmailField()
     telefono = models.CharField(max_length=20)
 
@@ -20,14 +20,14 @@ class Solicitud(models.Model):
         ('aprobada', 'Aprobada'),
         ('rechazada', 'Rechazada'),
     )
-    numero_solicitud = models.CharField(max_length=20, unique=True)
-    folio = models.CharField(max_length=20, blank=True, null=True)  # Campo ya existente
-    nro_cotizacion = models.CharField(max_length=20, blank=True, null=True)  # NUEVO: Número de cotización
-    nombre_solicitante = models.CharField(max_length=100)
+    numero_solicitud = models.CharField(max_length=20, unique=True, db_index=True)
+    folio = models.CharField(max_length=20, blank=True, null=True, db_index=True)  # Campo ya existente
+    nro_cotizacion = models.CharField(max_length=20, blank=True, null=True, db_index=True)  # NUEVO: Número de cotización
+    nombre_solicitante = models.CharField(max_length=100, db_index=True)
     stock_bodega = models.CharField(max_length=50, blank=True, null=True)
     usuario_creador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='solicitudes')
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente', db_index=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True, db_index=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     comentario = models.TextField(blank=True, null=True)
 
@@ -35,27 +35,27 @@ class Solicitud(models.Model):
         return f"Solicitud {self.numero_solicitud} - {self.estado}"
 
 class SolicitudDetalle(models.Model):
-    solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='detalles')
-    producto = models.CharField(max_length=200)
+    solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='detalles', db_index=True)
+    producto = models.CharField(max_length=200, db_index=True)
     cantidad = models.PositiveIntegerField()
-    motivo = models.CharField(max_length=200)
+    motivo = models.CharField(max_length=200, db_index=True)
     stock_bodega = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"Detalle: {self.producto} - {self.cantidad}"
 
 class OrdenesCompras(models.Model):
-    numero_orden = models.CharField(max_length=20, unique=True)
-    nro_cotizacion = models.CharField(max_length=20, blank=True, null=True)
+    numero_orden = models.CharField(max_length=20, unique=True, db_index=True)
+    nro_cotizacion = models.CharField(max_length=20, blank=True, null=True, db_index=True)
     mercaderia_puesta_en = models.CharField(max_length=100, blank=True, null=True)
-    fecha = models.DateTimeField(auto_now_add=True)
-    empresa = models.CharField(max_length=100)
-    proveedor = models.ForeignKey('Proveedor', on_delete=models.CASCADE)
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True)
+    empresa = models.CharField(max_length=100, db_index=True)
+    proveedor = models.ForeignKey('Proveedor', on_delete=models.CASCADE, db_index=True)
     cargo = models.CharField(max_length=50)
     forma_pago = models.CharField(max_length=50)
     plazo_entrega = models.CharField(max_length=50)
     comentarios = models.TextField(blank=True, null=True)
-    estado = models.CharField(max_length=20, default='pendiente')  # 'pendiente', 'items pendientes', 'completa'
+    estado = models.CharField(max_length=20, default='pendiente', db_index=True)  # 'pendiente', 'items pendientes', 'completa'
 
     def __str__(self):
         return f"Orden {self.numero_orden} - {self.estado}"
@@ -77,13 +77,13 @@ class OrdenesCompras(models.Model):
         self.save()
 
 class OrdenCompraDetalle(models.Model):
-    orden = models.ForeignKey(OrdenesCompras, on_delete=models.CASCADE, related_name="detalles")
+    orden = models.ForeignKey(OrdenesCompras, on_delete=models.CASCADE, related_name="detalles", db_index=True)
     cantidad = models.PositiveIntegerField()
-    detalle = models.CharField(max_length=200)  # Almacenará el nombre (o código y nombre) del producto
+    detalle = models.CharField(max_length=200, db_index=True)  # Almacenará el nombre (o código y nombre) del producto
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     cantidad_recibida = models.PositiveIntegerField(default=0)
     # NUEVO: Campo para almacenar el código del producto
-    codigo_producto = models.CharField(max_length=50, blank=True, null=True)
+    codigo_producto = models.CharField(max_length=50, blank=True, null=True, db_index=True)
 
     @property
     def total_item(self):
