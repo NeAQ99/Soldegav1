@@ -59,7 +59,7 @@ function MovimientosPage() {
     };
     fetchProductos();
   }, []);
-
+  
   const fetchMovimientos = async () => {
     let params = {};
     if (startDate && endDate) {
@@ -68,7 +68,6 @@ function MovimientosPage() {
         end_date: endDate.format('YYYY-MM-DD'),
       };
     }
-    // Si el toggle está activado, se agrega el parámetro para filtrar consignación
     if (filtrarConsignacion) {
       params.consignacion = "true";
     }
@@ -78,10 +77,13 @@ function MovimientosPage() {
         axiosInstance.get('movimientos/entradas/', { params }),
         axiosInstance.get('movimientos/salidas/', { params }),
       ]);
-      setEntradas(resEntradas.data);
-      setSalidas(resSalidas.data);
-      const totalEntradas = resEntradas.data.reduce((acc, item) => acc + item.cantidad, 0);
-      const totalSalidas = resSalidas.data.reduce((acc, item) => acc + item.cantidad, 0);
+      // Verifica si la respuesta tiene results, sino usa directamente los datos
+      const entradasData = resEntradas.data.results ? resEntradas.data.results : resEntradas.data;
+      const salidasData = resSalidas.data.results ? resSalidas.data.results : resSalidas.data;
+      setEntradas(entradasData);
+      setSalidas(salidasData);
+      const totalEntradas = entradasData.reduce((acc, item) => acc + item.cantidad, 0);
+      const totalSalidas = salidasData.reduce((acc, item) => acc + item.cantidad, 0);
       setTotales({ entradas: totalEntradas, salidas: totalSalidas });
     } catch (error) {
       console.error('Error al cargar movimientos:', error);
@@ -89,6 +91,7 @@ function MovimientosPage() {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchMovimientos();

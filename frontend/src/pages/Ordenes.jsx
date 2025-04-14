@@ -44,7 +44,6 @@ function Ordenes() {
 
   // La actualización del estado se hace en el back-end, por lo que en el front solo mostramos la propiedad
   // No se permite cambiar manualmente el estado.
-
   const fetchOrdenes = useCallback(async () => {
     setLoading(true);
     try {
@@ -53,17 +52,16 @@ function Ordenes() {
       if (searchTerm) params.push(`search=${encodeURIComponent(searchTerm)}`);
       if (params.length > 0) url += '?' + params.join('&');
       const response = await axiosInstance.get(url);
-      setOrdenes(response.data);
+      // Verificar si la respuesta está paginada
+      const data = response.data.results ? response.data.results : response.data;
+      setOrdenes(data);
     } catch (error) {
       console.error('Error al cargar órdenes:', error);
     } finally {
       setLoading(false);
     }
   }, [searchTerm]);
-
-  useEffect(() => {
-    fetchOrdenes();
-  }, [fetchOrdenes]);
+  
 
   const fetchProveedores = async () => {
     try {

@@ -40,18 +40,19 @@ function Solicitudes() {
     setLoading(true);
     try {
       let url = 'solicitudes/';
-      // Si el backend no filtra por fecha, se hará el filtrado en el front-end
       if (searchTerm) {
         url += `?search=${encodeURIComponent(searchTerm)}`;
       }
       const response = await axiosInstance.get(url);
-      setSolicitudes(response.data);
+      const data = response.data.results ? response.data.results : response.data;
+      setSolicitudes(data);
     } catch (error) {
       console.error('Error al cargar solicitudes:', error);
     } finally {
       setLoading(false);
     }
   }, [searchTerm]);
+  
 
   useEffect(() => {
     fetchSolicitudes();
