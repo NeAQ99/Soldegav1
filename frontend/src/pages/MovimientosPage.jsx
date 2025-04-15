@@ -12,8 +12,8 @@ import {
   CircularProgress,
   TablePagination,
   Button,
-  FormControlLabel, // <-- Agrega este
-  Switch,    
+  FormControlLabel,
+  Switch,
   Box,
   TextField,
   Dialog,
@@ -69,7 +69,6 @@ function MovimientosPage() {
         end_date: endDate.format('YYYY-MM-DD'),
       };
     }
-    // Si el toggle está activado, se agrega el parámetro para filtrar consignación
     if (filtrarConsignacion) {
       params.consignacion = "true";
     }
@@ -113,7 +112,6 @@ function MovimientosPage() {
     window.open(url, '_blank');
   };
 
-  // Función para obtener el código del producto. Si 'producto' es un objeto, lo usa; si es un ID, busca en la lista.
   const getProductoCodigo = (producto) => {
     if (producto && typeof producto === 'object' && producto.codigo) {
       return producto.codigo;
@@ -124,7 +122,6 @@ function MovimientosPage() {
     return '';
   };
 
-  // Función para obtener el nombre del producto.
   const getProductoNombre = (producto) => {
     if (producto && typeof producto === 'object' && producto.nombre) {
       return producto.nombre;
@@ -135,14 +132,13 @@ function MovimientosPage() {
     return producto;
   };
 
-  // Nueva función para obtener el motivo, mostrando "OC {número}" en caso de orden de compra.
-  const getMovimientoMotivo = (movimiento) => {
-    // Si la respuesta incluye la info de la OC, se usa ese valor
-    if (movimiento.orden_compra_info) {
-      return movimiento.orden_compra_info;
-    }
-    return movimiento.motivo || movimiento.cargo;
+const getMovimientoMotivo = (movimiento) => {
+  if (movimiento.motivo === 'recepcion_oc' && movimiento.orden_compra_info) {
+    return movimiento.orden_compra_info; // Mostrará "OC {número}"
   }
+  return movimiento.motivo || movimiento.cargo;
+};
+
 
   const handleVerDetalle = (movimiento) => {
     setMovimientoDetalle(movimiento);
@@ -232,7 +228,7 @@ function MovimientosPage() {
                   <TableCell>Código Producto</TableCell>
                   <TableCell>Nombre Producto</TableCell>
                   <TableCell>Cantidad</TableCell>
-                  <TableCell>{getMovimientoMotivo(entrada)}</TableCell>
+                  <TableCell>Motivo / OC</TableCell>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Acciones</TableCell>
                 </TableRow>
@@ -267,7 +263,7 @@ function MovimientosPage() {
                   <TableCell>Código Producto</TableCell>
                   <TableCell>Nombre Producto</TableCell>
                   <TableCell>Cantidad</TableCell>
-                  <TableCell>Cargo</TableCell>
+                  <TableCell>Motivo / Cargo</TableCell>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Acciones</TableCell>
                 </TableRow>
