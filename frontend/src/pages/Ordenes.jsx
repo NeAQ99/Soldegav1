@@ -1,32 +1,27 @@
-
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { IconButton } from '@mui/material';
+// src/pages/OrdenesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  CircularProgress, 
-  Button, 
-  TextField, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
+import {
+  Container,
+  Typography,
+  Box,
+  CircularProgress,
+  Button,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   TablePagination,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  IconButton
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axiosInstance from '../api/axiosInstance';
 import CrearOCModal from '../components/CrearOCModal';
 import OrdenDetalleModal from '../components/OrdenDetalleModal';
-
 
 function Ordenes() {
   const [ordenes, setOrdenes] = useState([]);
@@ -42,8 +37,6 @@ function Ordenes() {
   const [proveedores, setProveedores] = useState([]);
   const [productos, setProductos] = useState([]);
 
-  // La actualización del estado se hace en el back-end, por lo que en el front solo mostramos la propiedad
-  // No se permite cambiar manualmente el estado.
   const fetchOrdenes = useCallback(async () => {
     setLoading(true);
     try {
@@ -52,16 +45,17 @@ function Ordenes() {
       if (searchTerm) params.push(`search=${encodeURIComponent(searchTerm)}`);
       if (params.length > 0) url += '?' + params.join('&');
       const response = await axiosInstance.get(url);
-      // Verificar si la respuesta está paginada
-      const data = response.data.results ? response.data.results : response.data;
-      setOrdenes(data);
+      setOrdenes(response.data);
     } catch (error) {
       console.error('Error al cargar órdenes:', error);
     } finally {
       setLoading(false);
     }
   }, [searchTerm]);
-  
+
+  useEffect(() => {
+    fetchOrdenes();
+  }, [fetchOrdenes]);
 
   const fetchProveedores = async () => {
     try {
@@ -152,7 +146,6 @@ function Ordenes() {
     window.open(url, '_blank');
   };
 
-  // Función para recargar datos sin recargar la página completa
   const handleRecargar = () => {
     fetchOrdenes();
   };
@@ -190,13 +183,10 @@ function Ordenes() {
           onKeyPress={handleKeyPress}
           fullWidth
         />
-        <Button 
-          variant="contained" 
-          onClick={() => {
-            setSearchTerm(searchInput);
-            setPage(0);
-          }}
-        >
+        <Button variant="contained" onClick={() => {
+          setSearchTerm(searchInput);
+          setPage(0);
+        }}>
           Buscar
         </Button>
         <DatePicker
@@ -251,7 +241,6 @@ function Ordenes() {
         />
       </TableContainer>
       
-      {/* Modal para crear nueva OC */}
       {openCrearOC && (
         <CrearOCModal
           open={openCrearOC}
@@ -262,7 +251,6 @@ function Ordenes() {
         />
       )}
       
-      {/* Modal para ver detalles de la orden */}
       {ordenDetalle && (
         <OrdenDetalleModal
           open={openDetalle}

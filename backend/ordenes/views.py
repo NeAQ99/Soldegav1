@@ -259,7 +259,7 @@ class OrdenesPDFView(viewsets.ViewSet):
             print("Logo no encontrado en static/images/logo.png")
 
         # Crear el texto de la dirección (uno abajo del otro)
-        address_text = "52.001.387-3<br/>Bolivar #202<br/>Edificio Finanzas, Oficina #511"
+        address_text = "52.001.387-3<br/>Bolivar #202<br/>Edificio<br/FinanzasOficina #511"
         address_para = Paragraph(address_text, styles["Normal"])
 
         # Crear una tabla de encabezado de dos columnas: 

@@ -1,24 +1,25 @@
+// src/pages/MovimientosPage.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
+  Paper,
   Table,
-  TableBody,
-  TableCell,
   TableHead,
   TableRow,
-  Paper,
+  TableCell,
+  TableBody,
   CircularProgress,
   TablePagination,
   Button,
+  FormControlLabel, // <-- Agrega este
+  Switch,    
   Box,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  TextField,
-  Switch,
-  FormControlLabel
+  DialogActions
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axiosInstance from '../api/axiosInstance';
@@ -59,7 +60,7 @@ function MovimientosPage() {
     };
     fetchProductos();
   }, []);
-  
+
   const fetchMovimientos = async () => {
     let params = {};
     if (startDate && endDate) {
@@ -68,6 +69,7 @@ function MovimientosPage() {
         end_date: endDate.format('YYYY-MM-DD'),
       };
     }
+    // Si el toggle está activado, se agrega el parámetro para filtrar consignación
     if (filtrarConsignacion) {
       params.consignacion = "true";
     }
@@ -77,13 +79,10 @@ function MovimientosPage() {
         axiosInstance.get('movimientos/entradas/', { params }),
         axiosInstance.get('movimientos/salidas/', { params }),
       ]);
-      // Verifica si la respuesta tiene results, sino usa directamente los datos
-      const entradasData = resEntradas.data.results ? resEntradas.data.results : resEntradas.data;
-      const salidasData = resSalidas.data.results ? resSalidas.data.results : resSalidas.data;
-      setEntradas(entradasData);
-      setSalidas(salidasData);
-      const totalEntradas = entradasData.reduce((acc, item) => acc + item.cantidad, 0);
-      const totalSalidas = salidasData.reduce((acc, item) => acc + item.cantidad, 0);
+      setEntradas(resEntradas.data);
+      setSalidas(resSalidas.data);
+      const totalEntradas = resEntradas.data.reduce((acc, item) => acc + item.cantidad, 0);
+      const totalSalidas = resSalidas.data.reduce((acc, item) => acc + item.cantidad, 0);
       setTotales({ entradas: totalEntradas, salidas: totalSalidas });
     } catch (error) {
       console.error('Error al cargar movimientos:', error);
@@ -91,11 +90,9 @@ function MovimientosPage() {
       setLoading(false);
     }
   };
-  
 
   useEffect(() => {
     fetchMovimientos();
-    // eslint-disable-next-line
   }, [startDate, endDate, filtrarConsignacion]);
 
   const dataPie = [
@@ -121,7 +118,6 @@ function MovimientosPage() {
     if (producto && typeof producto === 'object' && producto.codigo) {
       return producto.codigo;
     } else if (producto) {
-      // Buscamos el producto en el listado
       const prod = productos.find(p => String(p.id) === String(producto));
       return prod ? prod.codigo : '';
     }
@@ -138,6 +134,15 @@ function MovimientosPage() {
     }
     return producto;
   };
+
+  // Nueva función para obtener el motivo, mostrando "OC {número}" en caso de orden de compra.
+  const getMovimientoMotivo = (movimiento) => {
+    // Si la respuesta incluye la info de la OC, se usa ese valor
+    if (movimiento.orden_compra_info) {
+      return movimiento.orden_compra_info;
+    }
+    return movimiento.motivo || movimiento.cargo;
+  }
 
   const handleVerDetalle = (movimiento) => {
     setMovimientoDetalle(movimiento);
@@ -227,32 +232,26 @@ function MovimientosPage() {
                   <TableCell>Código Producto</TableCell>
                   <TableCell>Nombre Producto</TableCell>
                   <TableCell>Cantidad</TableCell>
-                  <TableCell>Motivo</TableCell>
+                  <TableCell>{getMovimientoMotivo(entrada)}</TableCell>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {entradas
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((entrada) => (
-                    <TableRow key={entrada.id}>
-                      <TableCell>{getProductoCodigo(entrada.producto)}</TableCell>
-                      <TableCell>{getProductoNombre(entrada.producto)}</TableCell>
-                      <TableCell>{entrada.cantidad}</TableCell>
-                      <TableCell>
-                        {entrada.motivo === 'recepcion_oc' && entrada.orden_compra
-                          ? `OC ${entrada.orden_compra}`
-                          : entrada.motivo}
-                      </TableCell>
-                      <TableCell>{new Date(entrada.fecha).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button variant="outlined" onClick={() => handleVerDetalle(entrada)}>
-                          Ver Detalle
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {entradas.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((entrada) => (
+                  <TableRow key={entrada.id}>
+                    <TableCell>{getProductoCodigo(entrada.producto)}</TableCell>
+                    <TableCell>{getProductoNombre(entrada.producto)}</TableCell>
+                    <TableCell>{entrada.cantidad}</TableCell>
+                    <TableCell>{getMovimientoMotivo(entrada)}</TableCell>
+                    <TableCell>{new Date(entrada.fecha).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Button variant="outlined" onClick={() => handleVerDetalle(entrada)}>
+                        Ver Detalle
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </Paper>
@@ -279,7 +278,7 @@ function MovimientosPage() {
                     <TableCell>{getProductoCodigo(salida.producto)}</TableCell>
                     <TableCell>{getProductoNombre(salida.producto)}</TableCell>
                     <TableCell>{salida.cantidad}</TableCell>
-                    <TableCell>{salida.cargo}</TableCell>
+                    <TableCell>{getMovimientoMotivo(salida)}</TableCell>
                     <TableCell>{new Date(salida.fecha).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Button variant="outlined" onClick={() => handleVerDetalle(salida)}>
@@ -314,7 +313,6 @@ function MovimientosPage() {
         </PieChart>
       </Box>
 
-      {/* Modal de detalle */}
       <Dialog open={openDetalle} onClose={() => setOpenDetalle(false)} fullWidth maxWidth="sm">
         <DialogTitle>Detalle del Movimiento</DialogTitle>
         <DialogContent dividers>
@@ -330,7 +328,7 @@ function MovimientosPage() {
                 Cantidad: {movimientoDetalle.cantidad}
               </Typography>
               <Typography variant="subtitle1">
-                Tipo: {movimientoDetalle.motivo || movimientoDetalle.cargo}
+                Tipo: {getMovimientoMotivo(movimientoDetalle)}
               </Typography>
               <Typography variant="subtitle1">
                 Fecha: {new Date(movimientoDetalle.fecha).toLocaleDateString()}

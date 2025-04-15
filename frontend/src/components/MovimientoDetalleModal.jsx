@@ -17,7 +17,7 @@ function MovimientoDetalleModal({ open, onClose, movimiento }) {
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle1">Producto: {productoInfo}</Typography>
           <Typography variant="subtitle1">Cantidad: {movimiento.cantidad}</Typography>
-          <Typography variant="subtitle1">Tipo: {movimiento.motivo || movimiento.cargo}</Typography>
+          <Typography variant="subtitle1">Tipo: {getMovimientoMotivo(movimientoDetalle)}</Typography>
           <Typography variant="subtitle1">Fecha: {new Date(movimiento.fecha).toLocaleDateString()}</Typography>
         </Box>
       </DialogContent>
