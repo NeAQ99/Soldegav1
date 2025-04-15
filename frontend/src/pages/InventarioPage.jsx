@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import InfiniteScroll from 'react-infinite-scroll-component';
+// src/pages/InventarioPage.jsx
+import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import {
   Container,
   Typography,
   Table,
-  TableHead,
-  TableRow,
+  TableBody,
   TableCell,
   TableContainer,
-  TableBody,
+  TableHead,
+  TableRow,
   Paper,
   CircularProgress,
   Button,
   Box,
+  TablePagination,
   TextField,
   FormControlLabel,
   Checkbox,
@@ -26,9 +27,10 @@ import NuevoProductoModal from '../components/NuevoProductoModal';
 
 function InventarioPage() {
   const [productos, setProductos] = useState([]);
-  const [nextPageUrl, setNextPageUrl] = useState('productos/');
-  const [hasMore, setHasMore] = useState(true);
+  const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   // Estados para modales
   const [openEntrada, setOpenEntrada] = useState(false);
@@ -44,49 +46,39 @@ function InventarioPage() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success'); // success, error, warning, info
 
-  // Función para cargar productos paginados
+  useEffect(() => {
+    fetchProductos();
+    fetchOrdenes();
+  }, []);
+
   const fetchProductos = async () => {
-    if (!nextPageUrl) {
-      setHasMore(false);
-      return;
-    }
-    setLoading(true);
     try {
-      const response = await axiosInstance.get(nextPageUrl);
-      const data = response.data.results ? response.data.results : response.data;
-      setProductos((prev) => [...prev, ...data]);
-      setNextPageUrl(response.data.next);
-      if (!response.data.next) setHasMore(false);
+      const response = await axiosInstance.get('productos/');
+      setProductos(response.data);
     } catch (error) {
-      console.error("Error al cargar productos:", error);
+      console.error('Error al cargar productos:', error);
       showSnackbar("Error al cargar productos", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para reiniciar búsqueda
-  const handleSearch = () => {
-    // Reiniciar la lista y la URL base con el parámetro de búsqueda
-    const url = searchTerm ? `productos/?search=${encodeURIComponent(searchTerm)}` : 'productos/';
-    setProductos([]);
-    setNextPageUrl(url);
-    setHasMore(true);
-    fetchProductos();
+  const fetchOrdenes = async () => {
+    try {
+      const response = await axiosInstance.get('ordenes/');
+      setOrdenes(response.data);
+    } catch (error) {
+      console.error('Error al cargar órdenes:', error);
+      showSnackbar("Error al cargar órdenes", "error");
+    }
   };
 
-  useEffect(() => {
-    // Cargar la primera página
-    fetchProductos();
-  }, []);
-
-  // Calcula el valor total de la bodega
   const valorTotalBodega = productos.reduce(
     (acc, producto) => acc + producto.stock_actual * producto.precio_compra,
     0
   );
 
-  // Filtrar productos para el render, en este caso, ya se hace en el backend con la búsqueda, pero puedes aplicar filtros locales adicionales
+  // Filtrar productos basados en el término de búsqueda y el filtro de stock mínimo
   const filteredProducts = productos.filter((producto) => {
     const term = searchTerm.toLowerCase();
     const match =
@@ -98,21 +90,25 @@ function InventarioPage() {
     return match && underMin;
   });
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const showSnackbar = (message, severity = "success") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   };
 
-  // Las funciones de registrar entrada, salida y crear producto se mantienen igual...
   const handleRegistrarEntrada = async (payload) => {
     try {
       await axiosInstance.post('movimientos/entradas/', payload);
       showSnackbar("Entrada registrada exitosamente", "success");
-      // Reiniciar productos para recargar con datos actualizados
-      setProductos([]);
-      setNextPageUrl('productos/');
-      setHasMore(true);
       fetchProductos();
     } catch (error) {
       console.error('Error al registrar entrada:', error);
@@ -124,9 +120,6 @@ function InventarioPage() {
     try {
       await axiosInstance.post('movimientos/salidas/', payload);
       showSnackbar("Salida registrada exitosamente", "success");
-      setProductos([]);
-      setNextPageUrl('productos/');
-      setHasMore(true);
       fetchProductos();
     } catch (error) {
       console.error('Error al registrar salida:', error);
@@ -138,15 +131,20 @@ function InventarioPage() {
     try {
       await axiosInstance.post('productos/', payload);
       showSnackbar("Producto creado exitosamente", "success");
-      setProductos([]);
-      setNextPageUrl('productos/');
-      setHasMore(true);
       fetchProductos();
     } catch (error) {
       console.error('Error al crear producto:', error);
       showSnackbar("Error al crear producto", "error");
     }
   };
+
+  if (loading) {
+    return (
+      <Container sx={{ textAlign: 'center', marginTop: '2rem' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
 
   return (
     <Container>
@@ -157,7 +155,7 @@ function InventarioPage() {
           Valor Total: ${valorTotalBodega.toFixed(2)}
         </Typography>
       </Box>
-
+      
       {/* Barra de búsqueda y filtro */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
         <TextField
@@ -167,9 +165,6 @@ function InventarioPage() {
           onChange={(e) => setSearchTerm(e.target.value)}
           fullWidth
         />
-        <Button variant="contained" onClick={handleSearch}>
-          Buscar
-        </Button>
         <FormControlLabel
           control={
             <Checkbox
@@ -194,35 +189,26 @@ function InventarioPage() {
         </Button>
       </Box>
 
-      {/* Infinite Scroll para cargar productos */}
+      {/* Tabla de inventario con paginación */}
       <TableContainer component={Paper}>
-        <InfiniteScroll
-          dataLength={productos.length}
-          next={fetchProductos}
-          hasMore={hasMore}
-          loader={
-            <Box sx={{ textAlign: 'center', padding: '20px' }}>
-              <CircularProgress />
-            </Box>
-          }
-          endMessage={<Typography align="center">No hay más productos</Typography>}
-        >
-          <Table>
-            <TableHead sx={{ backgroundColor: 'red' }}>
-              <TableRow>
-                <TableCell sx={{ color: 'white' }}>Código</TableCell>
-                <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
-                <TableCell sx={{ color: 'white' }}>Descripción</TableCell>
-                <TableCell sx={{ color: 'white' }}>Stock Actual</TableCell>
-                <TableCell sx={{ color: 'white' }}>Stock Mínimo</TableCell>
-                <TableCell sx={{ color: 'white' }}>Precio Compra</TableCell>
-                <TableCell sx={{ color: 'white' }}>Valor Total</TableCell>
-                <TableCell sx={{ color: 'white' }}>Ubicación</TableCell>
-                <TableCell sx={{ color: 'white' }}>Consignación</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredProducts.map((producto) => (
+        <Table>
+          <TableHead sx={{ backgroundColor: 'red' }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white' }}>Código</TableCell>
+              <TableCell sx={{ color: 'white' }}>Nombre</TableCell>
+              <TableCell sx={{ color: 'white' }}>Descripción</TableCell>
+              <TableCell sx={{ color: 'white' }}>Stock Actual</TableCell>
+              <TableCell sx={{ color: 'white' }}>Stock Mínimo</TableCell>
+              <TableCell sx={{ color: 'white' }}>Precio Compra</TableCell>
+              <TableCell sx={{ color: 'white' }}>Valor Total</TableCell>
+              <TableCell sx={{ color: 'white' }}>Ubicación</TableCell>
+              <TableCell sx={{ color: 'white' }}>Consignación</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredProducts
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((producto) => (
                 <TableRow key={producto.id}>
                   <TableCell>{producto.codigo}</TableCell>
                   <TableCell>{producto.nombre}</TableCell>
@@ -235,9 +221,17 @@ function InventarioPage() {
                   <TableCell>{producto.consignacion ? producto.nombre_consignacion : 'n/a'}</TableCell>
                 </TableRow>
               ))}
-            </TableBody>
-          </Table>
-        </InfiniteScroll>
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={filteredProducts.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+        />
       </TableContainer>
 
       <EntradaModal
