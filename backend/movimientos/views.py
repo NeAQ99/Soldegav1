@@ -7,10 +7,11 @@ from rest_framework.decorators import action
 from django.utils.dateparse import parse_date
 from django.db.models import Sum 
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
+from reportlab.lib.styles import ParagraphStyle
 from bodega.models import Producto  
 from rest_framework import status
 from reportlab.lib import colors
@@ -126,7 +127,7 @@ class ReportePDFView(viewsets.ViewSet):
     Parámetros:
       - tipo: 'entrada' o 'salida'
       - start_date y end_date en formato YYYY-MM-DD
-      - consignacion (opcional)
+      - consignacion (opcional): si se filtra por consignación.
     """
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
@@ -145,17 +146,16 @@ class ReportePDFView(viewsets.ViewSet):
 
         if tipo == 'entrada':
             queryset = Entrada.objects.filter(
-                fecha__date__gte=start.date(),
+                fecha__date__gte=start.date(), 
                 fecha__date__lte=end.date()
             )
-            # Para entradas, el header tendrá dos columnas para el producto: Código y Nombre
-            header = ['Cantidad', 'Código', 'Nombre', 'Motivo / Orden', 'Valor Producto', 'Total Producto']
+            header = ['Cantidad', 'Código Producto', 'Nombre Producto', 'Motivo / Orden', 'Valor Producto', 'Total Producto']
         else:
             queryset = Salida.objects.filter(
-                fecha__date__gte=start.date(),
+                fecha__date__gte=start.date(), 
                 fecha__date__lte=end.date()
             )
-            header = ['Cantidad', 'Código', 'Nombre', 'Cargo', 'Valor Producto', 'Total Producto']
+            header = ['Cantidad', 'Código Producto', 'Nombre Producto', 'Cargo', 'Valor Producto', 'Total Producto']
 
         if consignacion_param and consignacion_param.lower() == "true":
             queryset = queryset.filter(producto__consignacion=True)
@@ -164,7 +164,7 @@ class ReportePDFView(viewsets.ViewSet):
         total_valor = 0
         data = [header]
 
-        # Definir un estilo de párrafo para permitir wrapping en las celdas
+        # Definir un estilo de párrafo para el wrapping de texto en celdas
         stylesheet = getSampleStyleSheet()
         wrapStyle = ParagraphStyle(
             name='Wrap',
@@ -178,7 +178,7 @@ class ReportePDFView(viewsets.ViewSet):
                 cantidad = entrada.cantidad
                 codigo = entrada.producto.codigo
                 nombre = entrada.producto.nombre
-                # Si es recepción de OC, mostramos el número de orden; sino, mostramos el motivo
+                # Si es OC, muestra "OC <número>" en lugar de "recepcion_oc"
                 if entrada.motivo == 'recepcion_oc' and entrada.orden_compra and entrada.orden_compra.numero_orden:
                     motivo_display = "OC " + entrada.orden_compra.numero_orden
                 else:
@@ -188,7 +188,7 @@ class ReportePDFView(viewsets.ViewSet):
                 total_movimientos += cantidad
                 total_valor += total_producto
 
-                # Usar Paragraph para código y nombre para que se ajusten en la celda
+                # Convertir código y nombre a Paragraph para que se ajusten en la celda
                 codigo_par = Paragraph(codigo, wrapStyle)
                 nombre_par = Paragraph(nombre, wrapStyle)
                 data.append([
@@ -210,6 +210,7 @@ class ReportePDFView(viewsets.ViewSet):
                 total_producto = cantidad * valor_producto
                 total_movimientos += cantidad
                 total_valor += total_producto
+
                 codigo_par = Paragraph(codigo, wrapStyle)
                 nombre_par = Paragraph(nombre, wrapStyle)
                 data.append([
@@ -222,7 +223,7 @@ class ReportePDFView(viewsets.ViewSet):
                 ])
             data.append(['', '', '', 'Total Salidas:', str(total_movimientos), f"${format_currency(total_valor)}"])
 
-        # Generar el PDF
+        # Inicializar el PDF
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
@@ -230,7 +231,7 @@ class ReportePDFView(viewsets.ViewSet):
         elements.append(title)
         elements.append(Spacer(1, 40))
 
-        # Definir anchos de columnas; ajústalos según tu contenido
+        # Definir anchos de columna; ajústalos según tu contenido
         colWidths = [60, 80, 120, 100, 80, 80]
         table = Table(data, colWidths=colWidths)
         table_style = TableStyle([
@@ -250,4 +251,4 @@ class ReportePDFView(viewsets.ViewSet):
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="informe_movimiento.pdf"'
         response.write(pdf)
-        return response
+        return response 
