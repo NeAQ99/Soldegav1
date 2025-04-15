@@ -15,7 +15,7 @@ from bodega.models import Producto
 from rest_framework import status
 from reportlab.lib import colors
 from movimientos.models import Entrada, Salida
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from .models import Entrada, Salida
 from .serializers import EntradaSerializer, SalidaSerializer
 
