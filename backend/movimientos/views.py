@@ -145,17 +145,17 @@ class ReportePDFView(viewsets.ViewSet):
 
         if tipo == 'entrada':
             queryset = Entrada.objects.filter(
-                fecha__date__gte=start.date(), 
+                fecha__date__gte=start.date(),
                 fecha__date__lte=end.date()
             )
-            # Cambiamos el header para entradas, mostrando "Motivo / Orden"
-            header = ['Cantidad', 'Producto', 'Motivo / Orden', 'Valor Producto', 'Total Producto']
+            # Para entradas, el header tendrá dos columnas para el producto: Código y Nombre
+            header = ['Cantidad', 'Código', 'Nombre', 'Motivo / Orden', 'Valor Producto', 'Total Producto']
         else:
             queryset = Salida.objects.filter(
-                fecha__date__gte=start.date(), 
+                fecha__date__gte=start.date(),
                 fecha__date__lte=end.date()
             )
-            header = ['Cantidad', 'Producto', 'Cargo', 'Valor Producto', 'Total Producto']
+            header = ['Cantidad', 'Código', 'Nombre', 'Cargo', 'Valor Producto', 'Total Producto']
 
         if consignacion_param and consignacion_param.lower() == "true":
             queryset = queryset.filter(producto__consignacion=True)
@@ -164,56 +164,75 @@ class ReportePDFView(viewsets.ViewSet):
         total_valor = 0
         data = [header]
 
-        # Para entradas, si el motivo es "recepcion_oc" y existe orden_compra, mostrar el nro de orden
+        # Definir un estilo de párrafo para permitir wrapping en las celdas
+        stylesheet = getSampleStyleSheet()
+        wrapStyle = ParagraphStyle(
+            name='Wrap',
+            fontSize=10,
+            leading=12,
+            wordWrap='CJK'  # Ajusta según sea necesario
+        )
+
         if tipo == 'entrada':
             for entrada in queryset:
                 cantidad = entrada.cantidad
-                producto = f"{entrada.producto.codigo} - {entrada.producto.nombre}"
-                if entrada.motivo == 'recepcion_oc' and hasattr(entrada, 'orden_compra') and entrada.orden_compra:
-                    motivo_display = entrada.orden_compra.numero_orden
+                codigo = entrada.producto.codigo
+                nombre = entrada.producto.nombre
+                # Si es recepción de OC, mostramos el número de orden; sino, mostramos el motivo
+                if entrada.motivo == 'recepcion_oc' and entrada.orden_compra and entrada.orden_compra.numero_orden:
+                    motivo_display = "OC " + entrada.orden_compra.numero_orden
                 else:
                     motivo_display = entrada.motivo
                 valor_producto = float(entrada.costo_unitario)
                 total_producto = cantidad * valor_producto
                 total_movimientos += cantidad
                 total_valor += total_producto
+
+                # Usar Paragraph para código y nombre para que se ajusten en la celda
+                codigo_par = Paragraph(codigo, wrapStyle)
+                nombre_par = Paragraph(nombre, wrapStyle)
                 data.append([
                     str(cantidad),
-                    producto,
+                    codigo_par,
+                    nombre_par,
                     motivo_display,
                     f"${format_currency(valor_producto)}",
                     f"${format_currency(total_producto)}"
                 ])
-            data.append(['', '', 'Total Entradas:', str(total_movimientos), f"${format_currency(total_valor)}"])
+            data.append(['', '', '', 'Total Entradas:', str(total_movimientos), f"${format_currency(total_valor)}"])
         else:
             for salida in queryset:
                 cantidad = salida.cantidad
-                producto = f"{salida.producto.codigo} - {salida.producto.nombre}"
+                codigo = salida.producto.codigo
+                nombre = salida.producto.nombre
                 cargo = salida.cargo
                 valor_producto = float(salida.producto.precio_compra)
                 total_producto = cantidad * valor_producto
                 total_movimientos += cantidad
                 total_valor += total_producto
+                codigo_par = Paragraph(codigo, wrapStyle)
+                nombre_par = Paragraph(nombre, wrapStyle)
                 data.append([
                     str(cantidad),
-                    producto,
+                    codigo_par,
+                    nombre_par,
                     cargo,
                     f"${format_currency(valor_producto)}",
                     f"${format_currency(total_producto)}"
                 ])
-            data.append(['', '', 'Total Salidas:', str(total_movimientos), f"${format_currency(total_valor)}"])
+            data.append(['', '', '', 'Total Salidas:', str(total_movimientos), f"${format_currency(total_valor)}"])
 
-        # Configurar el documento PDF
+        # Generar el PDF
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
         elements = []
-        title = Paragraph("Informe de Movimiento", styles['Title'])
+        title = Paragraph("Informe de Movimiento", stylesheet['Title'])
         elements.append(title)
         elements.append(Spacer(1, 40))
 
-        # Crear la tabla con los datos
-        table = Table(data, colWidths=[60, 150, 100, 80, 80])
+        # Definir anchos de columnas; ajústalos según tu contenido
+        colWidths = [60, 80, 120, 100, 80, 80]
+        table = Table(data, colWidths=colWidths)
         table_style = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.gray),
             ('TEXTCOLOR', (0,0), (-1,0), colors.orange),
