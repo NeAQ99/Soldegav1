@@ -19,7 +19,7 @@ class ProductoAdmin(admin.ModelAdmin):
         'nombre',
         'descripcion',
         'ubicacion',
-        'consignacion',
+        'consignacion', 
     )
     # Filtros laterales
     list_filter = (
