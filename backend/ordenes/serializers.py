@@ -90,11 +90,11 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             'estado',
             'detalles',
         ]
-        extra_kwargs = {
-            'numero_orden': {'read_only': True},
-        }
+    extra_kwargs = {
+        'numero_orden': {'read_only': True},
+    }
 
-       def create(self, validated_data):
+    def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
         empresa = validated_data.get('empresa', '').strip().lower()
 
@@ -132,7 +132,7 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
 
         validated_data['numero_orden'] = str(next_num)
 
-        # Creo la orden y sus detalles como antes
+        # Creo la orden y sus detalles
         orden = OrdenesCompras.objects.create(**validated_data)
         for detalle in detalles_data:
             det = detalle.copy()
