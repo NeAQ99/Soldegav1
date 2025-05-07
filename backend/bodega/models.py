@@ -1,7 +1,7 @@
 from django.db import models
 
 class Producto(models.Model):
-    codigo = models.CharField(max_length=20, unique=True, db_index=True)
+    codigo = models.CharField(max_length=40, unique=True, db_index=True)
     nombre = models.CharField(max_length=100, db_index=True)
     descripcion = models.TextField(blank=True, null=True)
     categoria = models.CharField(max_length=50, db_index=True)

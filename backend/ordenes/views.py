@@ -9,8 +9,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet , ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT
 
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle, Solicitud, Proveedor
 from .serializers import (
@@ -195,194 +196,197 @@ class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
 class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
-        # Obtener parámetro 'orden_id'
         orden_id = request.query_params.get('orden_id')
         if not orden_id:
-            return Response({"error": "Se requiere orden_id"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Se requiere orden_id"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             orden = OrdenesCompras.objects.get(id=orden_id)
         except OrdenesCompras.DoesNotExist:
-            return Response({"error": "Orden no encontrada"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Obtener detalles de la orden
+            return Response(
+                {"error": "Orden no encontrada"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         detalles = orden.detalles.all()
-        # Definir header de la tabla de detalles
-        detalle_header = ["Cantidad", "Código", "Producto / Detalle", "Precio Unitario", "Total Producto"]
+
+        # --- Estilos y Paragraph para contenido largo ---
+        styles     = getSampleStyleSheet()
+        body_style = ParagraphStyle(
+            name='body',
+            parent=styles['BodyText'],
+            wordWrap='CJK',      # envuelve líneas automáticamente
+            alignment=TA_LEFT,   # alineación izquierda
+            leading=12,          # espacio entre líneas
+        )
+
+        # --- Header de tabla de detalles ---
+        detalle_header = [
+            "Cantidad",
+            "Código",
+            "Producto / Detalle",
+            "Precio Unitario",
+            "Total Producto"
+        ]
         detalle_data = [detalle_header]
-        
-        # Procesar cada detalle
-        if detalles:
-            for detalle in detalles:
-                cantidad = detalle.cantidad
-                # Si no hay 'codigo_producto' y en 'detalle' se encuentra ":", se separa
-                if not detalle.codigo_producto and ":" in detalle.detalle:
-                    parts = detalle.detalle.split(":", 1)
-                    codigo = parts[0].strip()
-                    producto = parts[1].strip()
-                else:
-                    codigo = detalle.codigo_producto if detalle.codigo_producto else "-"
-                    producto = detalle.detalle
-                precio_unitario = float(detalle.precio_unitario)
-                total_producto = float(detalle.total_item)
-                detalle_data.append([
-                    str(cantidad),
-                    codigo,
-                    producto,
-                    f"${format_currency(precio_unitario)}",
-                    f"${format_currency(total_producto)}"
-                ])
-        else:
+
+        # Llenar filas, convirtiendo el texto largo en Paragraph
+        for det in detalles:
+            cant = det.cantidad
+
+            if not det.codigo_producto and ":" in det.detalle:
+                parts  = det.detalle.split(":", 1)
+                codigo = parts[0].strip()
+                nombre = parts[1].strip()
+            else:
+                codigo = det.codigo_producto or "-"
+                nombre = det.detalle
+
+            nombre_para = Paragraph(nombre, body_style)
+
+            pu = float(det.precio_unitario)
+            tp = float(det.total_item)
+
+            detalle_data.append([
+                str(cant),
+                codigo,
+                nombre_para,
+                f"${format_currency(pu)}",
+                f"${format_currency(tp)}"
+            ])
+
+        if not detalles:
             detalle_data.append(["-", "-", "No hay detalles", "-", "-"])
-        
-        # Calcular totales  
-        total_neto = sum([Decimal(detalle.cantidad) * detalle.precio_unitario for detalle in detalles])
-        iva = total_neto * Decimal('0.19')
+
+        # --- Cálculo de totales ---
+        total_neto  = sum(
+            Decimal(d.cantidad) * d.precio_unitario
+            for d in detalles
+        )
+        iva         = total_neto * Decimal('0.19')
         total_orden = total_neto + iva
 
-        # Configurar el PDF
+        # --- Configuración del PDF ---
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
+        doc    = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
 
-        # Cargar el logo
+        # Logo y dirección
         logo_path = finders.find("images/logo.png")
-        logo_element = None
         if logo_path:
-            try:
-                logo_element = Image(logo_path, width=100, height=50)
-                logo_element.hAlign = 'CENTER'
-            except Exception as e:
-                print("Error cargando el logo:", e)
+            logo_el = Image(logo_path, width=100, height=50)
+            logo_el.hAlign = 'CENTER'
         else:
-            print("Logo no encontrado en static/images/logo.png")
+            logo_el = ""
 
-        styles = getSampleStyleSheet()
-        address_text = "52.001.387-3<br/>Bolivar #202<br/>Edificio Finanzas<br/>Oficina #511"
+        address_text = (
+            "52.001.387-3<br/>"
+            "Bolivar #202<br/>"
+            "Edificio Finanzas<br/>"
+            "Oficina #511"
+        )
         address_para = Paragraph(address_text, styles["Normal"])
 
-        # Construir la tabla de encabezado: logo a la izquierda, dirección a la derecha
-        header_data = [[
-            logo_element if logo_element else "",
-            address_para
-        ]]
-        header_table = Table(header_data, colWidths=[200, 300])
+        header_table = Table(
+            [[logo_el, address_para]],
+            colWidths=[200, 300]
+        )
         header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN',         (0,0), (0,0),     'CENTER'),
+            ('ALIGN',         (1,0), (1,0),     'RIGHT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1),   12),
         ]))
         elements.append(header_table)
         elements.append(Spacer(1, 12))
 
-        # Construir la tabla de información de la orden
-        orden_data = []
-        orden_data.append([
-            "N° Orden:", orden.numero_orden,
-            "Fecha:", orden.fecha.strftime("%d/%m/%Y")
-        ])
-        orden_data.append([
-            "N° Cotización:", orden.nro_cotizacion if orden.nro_cotizacion else "n/a",
-            "Empresa:", orden.empresa
-        ])
-        orden_data.append([
-            "Merc. Puesta en:", orden.mercaderia_puesta_en if orden.mercaderia_puesta_en else "n/a",
-            "Proveedor:", orden.proveedor.nombre_proveedor if orden.proveedor else "n/a"
-        ])
-        orden_data.append([
-            "Rut:", orden.proveedor.rut if orden.proveedor else "n/a",
-            "Domicilio:", orden.proveedor.domicilio if orden.proveedor else "n/a"
-        ])
-        # Fila que muestra Folio y Cargo en dos columnas
-        orden_data.append([
-            "Folio:", orden.folio if hasattr(orden, 'folio') and orden.folio else "n/a",
-            "Cargo:", orden.cargo if orden.cargo else "n/a"
-        ])
-        # Fila para Ciudad
-        orden_data.append([
-            "Ciudad:", orden.proveedor.ubicacion if orden.proveedor else "n/a",
-            "", ""
-        ])
-
-        header_table_order = Table(orden_data, colWidths=[100, 150, 100, 150])
-        header_style = TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BACKGROUND', (0, 0), (0, 0), colors.whitesmoke),
-            ('BACKGROUND', (0, 1), (0, 1), colors.whitesmoke),
-            ('BACKGROUND', (0, 2), (0, 2), colors.whitesmoke),
-            ('BACKGROUND', (0, 3), (0, 3), colors.whitesmoke),
-            ('BACKGROUND', (0, 4), (0, 4), colors.whitesmoke),
-            ('BACKGROUND', (2, 0), (2, 0), colors.whitesmoke),
-            ('BACKGROUND', (2, 1), (2, 1), colors.whitesmoke),
-            ('BACKGROUND', (2, 2), (2, 2), colors.whitesmoke),
-            ('BACKGROUND', (2, 3), (2, 3), colors.whitesmoke),
-        ])
-        header_table_order.setStyle(header_style)
-        elements.append(header_table_order)
+        # --- Información de la orden ---
+        orden_info = [
+            ["Número de Orden:", str(orden.id)],
+            ["Fecha:", orden.fecha.strftime("%d/%m/%Y")],
+            ["Proveedor:", orden.proveedor_nombre],
+            ["RUT Proveedor:", orden.proveedor_rut],
+            ["Dirección Proveedor:", orden.proveedor_direccion],
+            ["Destinatario:", orden.destinatario or "-"],
+        ]
+        order_table = Table(
+            orden_info,
+            colWidths=[120, 380],
+            hAlign="LEFT"
+        )
+        order_table.setStyle(TableStyle([
+            ('FONTNAME',       (0,0), (-1,-1),    'Helvetica'),
+            ('FONTSIZE',       (0,0), (-1,-1),    10),
+            ('VALIGN',         (0,0), (-1,-1),    'TOP'),
+            ('ALIGN',          (0,0), (0,-1),     'RIGHT'),
+            ('ALIGN',          (1,0), (1,-1),     'LEFT'),
+            ('BOTTOMPADDING',  (0,0), (-1,-1),    6),
+        ]))
+        elements.append(order_table)
         elements.append(Spacer(1, 12))
 
-        # Tabla de detalles de la orden
-        detalle_table = Table(detalle_data, colWidths=[60, 80, 150, 80, 80], repeatRows=1)
+        # --- Tabla de detalles con wrap activo ---
+        detalle_table = Table(
+            detalle_data,
+            colWidths=[60, 80, 180, 80, 80],
+            repeatRows=1
+        )
         detalle_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.gray),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND',  (0,0),   (-1,0),    colors.gray),
+            ('TEXTCOLOR',   (0,0),   (-1,0),    colors.whitesmoke),
+            ('FONTNAME',    (0,0),   (-1,0),    'Helvetica-Bold'),
+            ('ALIGN',       (0,0),   (-1,-1),   'CENTER'),
+            ('VALIGN',      (2,1),   (2,-1),    'TOP'),
+            ('ALIGN',       (2,1),   (2,-1),    'LEFT'),
+            ('GRID',        (0,0),   (-1,-1),   0.5, colors.black),
         ]))
         elements.append(detalle_table)
         elements.append(Spacer(1, 12))
 
-        # Tabla de totales
+        # --- Tabla de totales ---
         totales_data = [
-            ["Total Neto:", f"${format_currency(total_neto)}"],
-            ["IVA (19%):", f"${format_currency(iva)}"],
-            ["Total Orden:", f"${format_currency(total_orden)}"],
+            ["Total Neto",    f"${format_currency(float(total_neto))}"],
+            ["IVA (19%)",     f"${format_currency(float(iva))}"],
+            ["Total Orden",   f"${format_currency(float(total_orden))}"],
         ]
-        totales_table = Table(totales_data, colWidths=[150, 100], hAlign='RIGHT')
+        totales_table = Table(
+            totales_data,
+            colWidths=[400, 120],
+            hAlign="RIGHT"
+        )
         totales_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTNAME',      (0,0), (-1,-1),    'Helvetica'),
+            ('FONTSIZE',      (0,0), (-1,-1),    10),
+            ('ALIGN',         (0,0), (0,-1),     'RIGHT'),
+            ('ALIGN',         (1,0), (1,-1),     'RIGHT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1),    6),
         ]))
         elements.append(totales_table)
-        elements.append(Spacer(1, 12))
-
-        # Tabla de información adicional (Plazo, Forma de pago, Comentarios)
-        additional_data = [
-            ["Plazo de entrega:", orden.plazo_entrega],
-            ["Forma de pago:", orden.forma_pago],
-            ["Comentarios:", orden.comentarios or ""],
-        ]
-        additional_table = Table(additional_data, colWidths=[150, 300], hAlign='LEFT')
-        additional_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(additional_table)
         elements.append(Spacer(1, 24))
 
-        # Tabla de firmas
+        # --- Sección de firmas ---
         firmas_data = [
-            ["Jefe Faena", "Solicitante", "Contabilidad"],
-            ["________________________", "________________________", "________________________"],
+            ["__________________________", "__________________________", "__________________________"],
+            ["Firma Técnico",           "Firma Jefatura",          "Firma Bodeguero"],
         ]
-        firmas_table = Table(firmas_data, colWidths=[150, 150, 150], hAlign='CENTER')
+        firmas_table = Table(
+            firmas_data,
+            colWidths=[180, 180, 180],
+            hAlign="CENTER"
+        )
         firmas_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('FONTSIZE', (0, 1), (-1, 1), 10),
-            ('TOPPADDING', (0, 1), (-1, 1), 12),
+            ('ALIGN',          (0,0), (-1,1),    'CENTER'),
+            ('BOTTOMPADDING',  (0,0), (-1,1),    12),
+            ('TOPPADDING',     (0,0), (-1,1),    12),
         ]))
         elements.append(firmas_table)
 
-        # Construir el PDF
+        # Construir PDF
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="orden_compra.pdf"'
-        response.write(pdf)
-        return response
+
+        return HttpResponse(pdf, content_type='application/pdf')

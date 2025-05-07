@@ -75,41 +75,70 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrdenesCompras
         fields = [
-            'id', 'numero_orden', 'nro_cotizacion', 'mercaderia_puesta_en', 'fecha', 'empresa',
-            'proveedor', 'proveedor_id', 'cargo', 'forma_pago', 'plazo_entrega', 'comentarios',
-            'estado', 'detalles'
+            'id',
+            'numero_orden',
+            'nro_cotizacion',
+            'mercaderia_puesta_en',
+            'fecha',
+            'empresa',
+            'proveedor',
+            'proveedor_id',
+            'cargo',
+            'forma_pago',
+            'plazo_entrega',
+            'comentarios',
+            'estado',
+            'detalles',
         ]
         extra_kwargs = {
             'numero_orden': {'read_only': True},
         }
 
-    # ESTE MÉTODO CREATE DEBE ESTAR FUERA DE LA CLASE Meta, A NIVEL DE LA CLASE
-    def create(self, validated_data):
+       def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
-        empresa = validated_data.get('empresa')
-        if empresa.lower() == "inversiones imperia Spa".lower():
-            last_order = self.Meta.model.objects.filter(empresa__iexact="Inversiones Imperia Spa").aggregate(max_num=Max('numero_orden'))['max_num']
-            start = 7698
+        empresa = validated_data.get('empresa', '').strip().lower()
 
-        elif empresa == "Maquinarias Imperia SPA":
-            last_order = self.Meta.model.objects.filter(empresa="Maquinarias Imperia SPA").aggregate(max_num=Max('numero_orden'))['max_num']
-            start = 265  # Número predeterminado para Maquinarias Imperia SPA (ajústalo según necesites)
+        # Defino el correlativo inicial por si no hay ninguna OC previa
+        if empresa == "inversiones imperia spa":
+            last_order = OrdenesCompras.objects.filter(
+                empresa__iexact="Inversiones Imperia Spa"
+            ).aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 7788
+
+        elif empresa == "maquinarias imperia spa":
+            last_order = OrdenesCompras.objects.filter(
+                empresa__iexact="Maquinarias Imperia SPA"
+            ).aggregate(max_num=Max('numero_orden'))['max_num']
+            start = 265
+
         else:
-            raise serializers.ValidationError("Empresa inválida. Las opciones permitidas son 'Inversiones Imperia Spa' y 'Maquinarias Imperia SPA'.")
+            raise serializers.ValidationError(
+                "Empresa inválida. Las opciones permitidas son "
+                "'Inversiones Imperia Spa' y 'Maquinarias Imperia SPA'."
+            )
 
+        # Si existe un correlativo previo, tomo +1; si no, uso el start
         if last_order:
             try:
-                new_num = int(last_order) + 1
-            except ValueError:
-                new_num = start
+                next_num = int(last_order) + 1
+            except (TypeError, ValueError):
+                next_num = start
         else:
-            new_num = start
+            next_num = start
 
-        validated_data['numero_orden'] = str(new_num)
+        # Sólo para Inversiones: si el siguiente sería 7787, lo salto a 7788
+        if empresa == "inversiones imperia spa" and next_num == 7787:
+            next_num = 7788
+
+        validated_data['numero_orden'] = str(next_num)
+
+        # Creo la orden y sus detalles como antes
         orden = OrdenesCompras.objects.create(**validated_data)
-        for detalle_data in detalles_data:
-            if isinstance(detalle_data.get('detalle'), dict):
-                detalle_data['codigo_producto'] = detalle_data['detalle'].get('codigo', '')
-                detalle_data['detalle'] = detalle_data['detalle'].get('nombre', '')
-            OrdenCompraDetalle.objects.create(orden=orden, **detalle_data)
+        for detalle in detalles_data:
+            det = detalle.copy()
+            if isinstance(det.get('detalle'), dict):
+                det['codigo_producto'] = det['detalle'].get('codigo', '')
+                det['detalle'] = det['detalle'].get('nombre', '')
+            OrdenCompraDetalle.objects.create(orden=orden, **det)
+
         return orden
