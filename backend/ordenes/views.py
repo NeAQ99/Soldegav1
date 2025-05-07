@@ -388,6 +388,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="orden_compra.pdf"'
-        response.write(pdf)
+
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="OC{orden.numero_orden}.pdf"'
+        return response
