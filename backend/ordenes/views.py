@@ -193,7 +193,7 @@ class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
     queryset = OrdenCompraDetalle.objects.all()
     serializer_class = OrdenCompraDetalleSerializer
 
-cclass OrdenesPDFView(viewsets.ViewSet):
+class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
         orden_id = request.query_params.get('orden_id')
