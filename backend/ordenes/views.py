@@ -166,6 +166,33 @@ class SolicitudPDFView(viewsets.ViewSet):
         response.write(pdf)
         return response
 
+class OrdenesComprasViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar las órdenes de compra.
+    Se asigna el correlativo de forma independiente según la empresa.
+    """
+    queryset = OrdenesCompras.objects.all().order_by('-fecha')
+    serializer_class = OrdenesComprasSerializer
+
+    @action(detail=False, methods=['get'], url_path='pendientes')
+    def pendientes(self, request):
+        pendientes_oc = self.get_queryset().filter(estado__in=['pendiente', 'items pendientes'])
+        serializer = self.get_serializer(pendientes_oc, many=True)
+        return Response(serializer.data)
+
+    def list(self, request, *args, **kwargs):
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        orders_to_update = self.get_queryset().filter(
+            fecha__lt=thirty_days_ago,
+            estado__in=['pendiente', 'producto pendiente']
+        )
+        orders_to_update.update(estado='inactiva')
+        return super().list(request, *args, **kwargs)
+
+class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
+    queryset = OrdenCompraDetalle.objects.all()
+    serializer_class = OrdenCompraDetalleSerializer
+
 class OrdenesPDFView(viewsets.ViewSet): 
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
