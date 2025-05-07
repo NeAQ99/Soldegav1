@@ -303,15 +303,15 @@ class OrdenesPDFView(viewsets.ViewSet):
         elements.append(header_table)
         elements.append(Spacer(1, 12))
 
-        # --- Información de la orden ---
         orden_info = [
-            ["Número de Orden:", str(orden.id)],
+            ["Número de Orden:", orden.numero_orden],
             ["Fecha:", orden.fecha.strftime("%d/%m/%Y")],
             ["Proveedor:", orden.proveedor.nombre_proveedor if orden.proveedor else "n/a"],
-            ["RUT Proveedor:", orden.proveedor_rut],
-            ["Dirección Proveedor:", orden.proveedor_direccion],
+            ["RUT Proveedor:", orden.proveedor.rut if orden.proveedor else "n/a"],
+            ["Dirección Proveedor:", orden.proveedor.domicilio if orden.proveedor else "n/a"],
             ["Destinatario:", orden.destinatario or "-"],
         ]
+
         order_table = Table(
             orden_info,
             colWidths=[120, 380],
