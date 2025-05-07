@@ -90,15 +90,15 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
             'estado',
             'detalles',
         ]
-    extra_kwargs = {
-        'numero_orden': {'read_only': True},
-    }
+        extra_kwargs = {
+            'numero_orden': {'read_only': True},
+        }
 
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles', [])
         empresa = validated_data.get('empresa', '').strip().lower()
 
-        # Defino el correlativo inicial por si no hay ninguna OC previa
+        # Defino correlativos iniciales
         if empresa == "inversiones imperia spa":
             last_order = OrdenesCompras.objects.filter(
                 empresa__iexact="Inversiones Imperia Spa"
@@ -113,11 +113,9 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
 
         else:
             raise serializers.ValidationError(
-                "Empresa inválida. Las opciones permitidas son "
-                "'Inversiones Imperia Spa' y 'Maquinarias Imperia SPA'."
+                "Empresa inválida. Opciones: 'Inversiones Imperia Spa' o 'Maquinarias Imperia SPA'."
             )
 
-        # Si existe un correlativo previo, tomo +1; si no, uso el start
         if last_order:
             try:
                 next_num = int(last_order) + 1
@@ -126,13 +124,13 @@ class OrdenesComprasSerializer(serializers.ModelSerializer):
         else:
             next_num = start
 
-        # Sólo para Inversiones: si el siguiente sería 7787, lo salto a 7788
+        # Salto caso especial
         if empresa == "inversiones imperia spa" and next_num == 7787:
             next_num = 7788
 
         validated_data['numero_orden'] = str(next_num)
 
-        # Creo la orden y sus detalles
+        # Creo la OC y sus detalles
         orden = OrdenesCompras.objects.create(**validated_data)
         for detalle in detalles_data:
             det = detalle.copy()
