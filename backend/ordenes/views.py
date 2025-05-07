@@ -214,13 +214,13 @@ class OrdenesPDFView(viewsets.ViewSet):
         detalles = orden.detalles.all()
 
         # --- Estilos y Paragraph para contenido largo ---
-        styles     = getSampleStyleSheet()
         body_style = ParagraphStyle(
             name='body',
             parent=styles['BodyText'],
-            wordWrap='CJK',      # envuelve líneas automáticamente
-            alignment=TA_LEFT,   # alineación izquierda
-            leading=12,          # espacio entre líneas
+            wordWrap='CJK',        # envuelve líneas automáticamente
+            splitLongWords=True,   # permite partir palabras excesivamente largas
+            alignment=TA_LEFT,
+            leading=12,
         )
 
         # --- Header de tabla de detalles ---
@@ -246,13 +246,14 @@ class OrdenesPDFView(viewsets.ViewSet):
                 nombre = det.detalle
 
             nombre_para = Paragraph(nombre, body_style)
+            codigo_para = Paragraph(codigo, body_style)
 
             pu = float(det.precio_unitario)
             tp = float(det.total_item)
 
             detalle_data.append([
                 str(cant),
-                codigo,
+                codigo_para, 
                 nombre_para,
                 f"${format_currency(pu)}",
                 f"${format_currency(tp)}"
@@ -304,12 +305,10 @@ class OrdenesPDFView(viewsets.ViewSet):
         elements.append(Spacer(1, 12))
 
         orden_info = [
-            ["Número de Orden:", orden.numero_orden],
-            ["Fecha:", orden.fecha.strftime("%d/%m/%Y")],
-            ["Proveedor:", orden.proveedor.nombre_proveedor if orden.proveedor else "n/a"],
-            ["RUT Proveedor:", orden.proveedor.rut if orden.proveedor else "n/a"],
-            ["Dirección Proveedor:", orden.proveedor.domicilio if orden.proveedor else "n/a"],
-            ["Destinatario:", orden.destinatario or "-"],
+             ["N° Orden:", orden.numero_orden, "Fecha:", orden.fecha.strftime("%d/%m/%Y")],
+            ["Proveedor:", orden.proveedor.nombre_proveedor, "RUT:", orden.proveedor.rut],
+            ["Domicilio:", orden.proveedor.domicilio, "Ciudad:", orden.proveedor.ubicacion],
+            ["Folio:", getattr(orden, 'folio', 'n/a'), "Cargo:", orden.cargo],
         ]
 
         order_table = Table(
@@ -389,4 +388,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         pdf = buffer.getvalue()
         buffer.close()
 
-        return HttpResponse(pdf, content_type='application/pdf')
+        response = HttpResponse(pdf, content_type='application/pdf')
+        filename = f'OC_{orden.numero_orden}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
