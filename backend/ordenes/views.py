@@ -166,98 +166,88 @@ class SolicitudPDFView(viewsets.ViewSet):
         response.write(pdf)
         return response
 
-class OrdenesComprasViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gestionar las órdenes de compra.
-    Se asigna el correlativo de forma independiente según la empresa.
-    """
-    queryset = OrdenesCompras.objects.all().order_by('-fecha')
-    serializer_class = OrdenesComprasSerializer
-
-    @action(detail=False, methods=['get'], url_path='pendientes')
-    def pendientes(self, request):
-        pendientes_oc = self.get_queryset().filter(estado__in=['pendiente', 'items pendientes'])
-        serializer = self.get_serializer(pendientes_oc, many=True)
-        return Response(serializer.data)
-
-    def list(self, request, *args, **kwargs):
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        orders_to_update = self.get_queryset().filter(
-            fecha__lt=thirty_days_ago,
-            estado__in=['pendiente', 'producto pendiente']
-        )
-        orders_to_update.update(estado='inactiva')
-        return super().list(request, *args, **kwargs)
-
-class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
-    queryset = OrdenCompraDetalle.objects.all()
-    serializer_class = OrdenCompraDetalleSerializer
-
 class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
         orden_id = request.query_params.get('orden_id')
         if not orden_id:
-            return Response({"error": "Se requiere orden_id"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Se requiere orden_id"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             orden = OrdenesCompras.objects.get(id=orden_id)
         except OrdenesCompras.DoesNotExist:
-            return Response({"error": "Orden no encontrada"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Orden no encontrada"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         detalles = orden.detalles.all()
 
-        # 1) Preparo estilos
-        styles = getSampleStyleSheet()
+        # --- Estilos y Paragraph para contenido largo ---
+        styles     = getSampleStyleSheet()
         body_style = ParagraphStyle(
             name='body',
             parent=styles['BodyText'],
-            wordWrap='CJK',         # envuelve palabras largas
-            splitLongWords=True,    # permite partir palabras muy largas
-            alignment=TA_LEFT,
-            leading=12,
+            wordWrap='CJK',      # envuelve líneas automáticamente
+            alignment=TA_LEFT,   # alineación izquierda
+            leading=12,          # espacio entre líneas
         )
 
-        # 2) Header de detalles
-        detalle_header = ["Cantidad", "Código", "Producto / Detalle", "Precio Unitario", "Total Producto"]
+        # --- Header de tabla de detalles ---
+        detalle_header = [
+            "Cantidad",
+            "Código",
+            "Producto / Detalle",
+            "Precio Unitario",
+            "Total Producto"
+        ]
         detalle_data = [detalle_header]
 
+        # Llenar filas, convirtiendo el texto largo en Paragraph
         for det in detalles:
-            # Código y nombre
-            if not det.codigo_producto and ":" in det.detalle:
-                parts = det.detalle.split(":", 1)
-                codigo = parts[0].strip()
-                nombre = parts[1].strip()
-            else:
-                codigo = det.codigo_producto or "-"
-                nombre = det.detalle
+            cant = det.cantidad
 
-            # Wrap en Paragraph
-            codigo_para = Paragraph(codigo, body_style)
-            nombre_para = Paragraph(nombre, body_style)
+            # separar código y nombre si aplica
+            if not det.codigo_producto and ":" in det.detalle:
+                parts  = det.detalle.split(":", 1)
+                raw_codigo = parts[0].strip()
+                raw_nombre = parts[1].strip()
+            else:
+                raw_codigo = det.codigo_producto or "-"
+                raw_nombre = det.detalle
+
+            # Paragraph wrapping para código y nombre
+            codigo_para = Paragraph(raw_codigo, body_style)
+            nombre_para = Paragraph(raw_nombre, body_style)
 
             pu = float(det.precio_unitario)
             tp = float(det.total_item)
 
             detalle_data.append([
-                str(det.cantidad),
+                str(cant),
                 codigo_para,
                 nombre_para,
                 f"${format_currency(pu)}",
-                f"${format_currency(tp)}",
+                f"${format_currency(tp)}"
             ])
 
         if not detalles:
             detalle_data.append(["-", "-", "No hay detalles", "-", "-"])
 
-        # 3) Totales
-        total_neto = sum(Decimal(d.cantidad) * d.precio_unitario for d in detalles)
-        iva = total_neto * Decimal('0.19')
+        # --- Cálculo de totales ---
+        total_neto  = sum(
+            Decimal(d.cantidad) * d.precio_unitario
+            for d in detalles
+        )
+        iva         = total_neto * Decimal('0.19')
         total_orden = total_neto + iva
 
-        # 4) Construcción del PDF
+        # --- Configuración del PDF ---
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        doc    = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
 
         # Logo
@@ -268,7 +258,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         else:
             logo_el = ""
 
-        # Dirección
+        # Dirección al lado derecho
         address_text = (
             "52.001.387-3<br/>"
             "Bolivar #202<br/>"
@@ -277,82 +267,103 @@ class OrdenesPDFView(viewsets.ViewSet):
         )
         address_para = Paragraph(address_text, styles["Normal"])
 
-        # Tabla de header
-        header_table = Table([[logo_el, address_para]], colWidths=[200, 300])
+        header_table = Table(
+            [[logo_el, address_para]],
+            colWidths=[200, 300]
+        )
         header_table.setStyle(TableStyle([
-            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN',         (0, 0), (0, 0),     'CENTER'),
-            ('ALIGN',         (1, 0), (1, 0),     'RIGHT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1),   12),
+            ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN',         (0,0), (0,0),     'CENTER'),
+            ('ALIGN',         (1,0), (1,0),     'RIGHT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1),   12),
         ]))
-        elements += [header_table, Spacer(1, 12)]
+        elements.append(header_table)
+        elements.append(Spacer(1, 12))
 
-        # Datos de la orden
+        # --- Información general de la orden ---
         orden_info = [
             ["N° Orden:", orden.numero_orden, "Fecha:", orden.fecha.strftime("%d/%m/%Y")],
             ["Proveedor:", orden.proveedor.nombre_proveedor, "RUT:", orden.proveedor.rut],
             ["Domicilio:", orden.proveedor.domicilio, "Ciudad:", orden.proveedor.ubicacion],
             ["Folio:", getattr(orden, 'folio', 'n/a'), "Cargo:", orden.cargo],
         ]
-        order_table = Table(orden_info, colWidths=[120, 140, 120, 140])
+        order_table = Table(orden_info, colWidths=[120, 180, 80, 120], hAlign="LEFT")
         order_table.setStyle(TableStyle([
-            ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE',      (0, 0), (-1, -1), 10),
-            ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
-            ('ALIGN',         (0, 0), (0, -1),   'RIGHT'),
-            ('ALIGN',         (1, 0), (1, -1),   'LEFT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1),  6),
+            ('FONTNAME',       (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',       (0,0), (-1,-1), 10),
+            ('VALIGN',         (0,0), (-1,-1), 'TOP'),
+            ('ALIGN',          (0,0), (0,-1),  'RIGHT'),
+            ('ALIGN',          (1,0), (1,-1),  'LEFT'),
+            ('ALIGN',          (2,0), (2,-1),  'RIGHT'),
+            ('ALIGN',          (3,0), (3,-1),  'LEFT'),
+            ('BOTTOMPADDING',  (0,0), (-1,-1), 6),
         ]))
-        elements += [order_table, Spacer(1, 12)]
+        elements.append(order_table)
+        elements.append(Spacer(1, 12))
 
-        # Tabla de detalles con wrap
-        detalle_table = Table(detalle_data, colWidths=[60, 80, 180, 80, 80], repeatRows=1)
+        # --- Tabla de detalles con wrap activo ---
+        detalle_table = Table(
+            detalle_data,
+            colWidths=[60, 80, 180, 80, 80],
+            repeatRows=1
+        )
         detalle_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0),   colors.gray),
-            ('TEXTCOLOR',  (0, 0), (-1, 0),   colors.whitesmoke),
-            ('FONTNAME',   (0, 0), (-1, 0),   'Helvetica-Bold'),
-            ('ALIGN',      (0, 0), (-1, -1),  'CENTER'),
-            ('VALIGN',     (2, 1), (2, -1),   'TOP'),
-            ('ALIGN',      (2, 1), (2, -1),   'LEFT'),
-            ('GRID',       (0, 0), (-1, -1),  0.5, colors.black),
+            ('BACKGROUND',  (0,0),  (-1,0),  colors.gray),
+            ('TEXTCOLOR',   (0,0),  (-1,0),  colors.whitesmoke),
+            ('FONTNAME',    (0,0),  (-1,0),  'Helvetica-Bold'),
+            ('ALIGN',       (0,0),  (-1,-1),'CENTER'),
+            # top-align y wrap en código y detalle
+            ('VALIGN',      (1,1),  (1,-1),  'TOP'),
+            ('VALIGN',      (2,1),  (2,-1),  'TOP'),
+            ('ALIGN',       (1,1),  (1,-1),  'LEFT'),
+            ('ALIGN',       (2,1),  (2,-1),  'LEFT'),
+            ('GRID',        (0,0),  (-1,-1), 0.5, colors.black),
         ]))
-        elements += [detalle_table, Spacer(1, 12)]
+        elements.append(detalle_table)
+        elements.append(Spacer(1, 12))
 
-        # Totales
+        # --- Tabla de totales ---
         totales_data = [
             ["Total Neto",  f"${format_currency(float(total_neto))}"],
             ["IVA (19%)",   f"${format_currency(float(iva))}"],
             ["Total Orden", f"${format_currency(float(total_orden))}"],
         ]
-        totales_table = Table(totales_data, colWidths=[400, 120], hAlign="RIGHT")
+        totales_table = Table(
+            totales_data,
+            colWidths=[400, 120],
+            hAlign="RIGHT"
+        )
         totales_table.setStyle(TableStyle([
-            ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE',      (0, 0), (-1, -1), 10),
-            ('ALIGN',         (0, 0), (0, -1),   'RIGHT'),
-            ('ALIGN',         (1, 0), (1, -1),   'RIGHT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1),  6),
+            ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',      (0,0), (-1,-1), 10),
+            ('ALIGN',         (0,0), (1,-1),  'RIGHT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
         ]))
-        elements += [totales_table, Spacer(1, 24)]
+        elements.append(totales_table)
+        elements.append(Spacer(1, 24))
 
-        # Firmas
+        # --- Sección de firmas ---
         firmas_data = [
             ["__________________________", "__________________________", "__________________________"],
             ["Firma Técnico",           "Firma Jefatura",          "Firma Bodeguero"],
         ]
-        firmas_table = Table(firmas_data, colWidths=[180, 180, 180], hAlign="CENTER")
+        firmas_table = Table(
+            firmas_data,
+            colWidths=[180, 180, 180],
+            hAlign="CENTER"
+        )
         firmas_table.setStyle(TableStyle([
-            ('ALIGN',          (0, 0), (-1, 1), 'CENTER'),
-            ('BOTTOMPADDING',  (0, 0), (-1, 1), 12),
-            ('TOPPADDING',     (0, 0), (-1, 1), 12),
+            ('ALIGN',         (0,0), (-1,1),   'CENTER'),
+            ('BOTTOMPADDING', (0,0), (-1,1),   12),
+            ('TOPPADDING',    (0,0), (-1,1),   12),
         ]))
         elements.append(firmas_table)
 
-        # Generar PDF
+        # Construir y devolver PDF con nombre dinámico
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()
 
-        filename = f'OC_{orden.numero_orden}.pdf'
         response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Disposition'] = f'attachment; filename="OC{orden.numero_orden}.pdf"'
         return response
