@@ -307,7 +307,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         orden_info = [
             ["Número de Orden:", str(orden.id)],
             ["Fecha:", orden.fecha.strftime("%d/%m/%Y")],
-            ["Proveedor:", orden.proveedor_nombre],
+            ["Proveedor:", orden.proveedor.nombre_proveedor if orden.proveedor else "n/a"],
             ["RUT Proveedor:", orden.proveedor_rut],
             ["Dirección Proveedor:", orden.proveedor_direccion],
             ["Destinatario:", orden.destinatario or "-"],
