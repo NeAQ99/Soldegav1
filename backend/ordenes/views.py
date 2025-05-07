@@ -166,6 +166,33 @@ class SolicitudPDFView(viewsets.ViewSet):
         response.write(pdf)
         return response
 
+class OrdenesComprasViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar las órdenes de compra.
+    Se asigna el correlativo de forma independiente según la empresa.
+    """
+    queryset = OrdenesCompras.objects.all().order_by('-fecha')
+    serializer_class = OrdenesComprasSerializer
+
+    @action(detail=False, methods=['get'], url_path='pendientes')
+    def pendientes(self, request):
+        pendientes_oc = self.get_queryset().filter(estado__in=['pendiente', 'items pendientes'])
+        serializer = self.get_serializer(pendientes_oc, many=True)
+        return Response(serializer.data)
+
+    def list(self, request, *args, **kwargs):
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        orders_to_update = self.get_queryset().filter(
+            fecha__lt=thirty_days_ago,
+            estado__in=['pendiente', 'producto pendiente']
+        )
+        orders_to_update.update(estado='inactiva')
+        return super().list(request, *args, **kwargs)
+
+class OrdenCompraDetalleViewSet(viewsets.ModelViewSet):
+    queryset = OrdenCompraDetalle.objects.all()
+    serializer_class = OrdenCompraDetalleSerializer
+
 class OrdenesPDFView(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generar_pdf(self, request):
@@ -210,25 +237,22 @@ class OrdenesPDFView(viewsets.ViewSet):
         for det in detalles:
             cant = det.cantidad
 
-            # separar código y nombre si aplica
             if not det.codigo_producto and ":" in det.detalle:
                 parts  = det.detalle.split(":", 1)
-                raw_codigo = parts[0].strip()
-                raw_nombre = parts[1].strip()
+                codigo = parts[0].strip()
+                nombre = parts[1].strip()
             else:
-                raw_codigo = det.codigo_producto or "-"
-                raw_nombre = det.detalle
+                codigo = det.codigo_producto or "-"
+                nombre = det.detalle
 
-            # Paragraph wrapping para código y nombre
-            codigo_para = Paragraph(raw_codigo, body_style)
-            nombre_para = Paragraph(raw_nombre, body_style)
+            nombre_para = Paragraph(nombre, body_style)
 
             pu = float(det.precio_unitario)
             tp = float(det.total_item)
 
             detalle_data.append([
                 str(cant),
-                codigo_para,
+                codigo,
                 nombre_para,
                 f"${format_currency(pu)}",
                 f"${format_currency(tp)}"
@@ -250,7 +274,7 @@ class OrdenesPDFView(viewsets.ViewSet):
         doc    = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
 
-        # Logo
+        # Logo y dirección
         logo_path = finders.find("images/logo.png")
         if logo_path:
             logo_el = Image(logo_path, width=100, height=50)
@@ -258,7 +282,6 @@ class OrdenesPDFView(viewsets.ViewSet):
         else:
             logo_el = ""
 
-        # Dirección al lado derecho
         address_text = (
             "52.001.387-3<br/>"
             "Bolivar #202<br/>"
@@ -280,23 +303,27 @@ class OrdenesPDFView(viewsets.ViewSet):
         elements.append(header_table)
         elements.append(Spacer(1, 12))
 
-        # --- Información general de la orden ---
+        # --- Información de la orden ---
         orden_info = [
-            ["N° Orden:", orden.numero_orden, "Fecha:", orden.fecha.strftime("%d/%m/%Y")],
-            ["Proveedor:", orden.proveedor.nombre_proveedor, "RUT:", orden.proveedor.rut],
-            ["Domicilio:", orden.proveedor.domicilio, "Ciudad:", orden.proveedor.ubicacion],
-            ["Folio:", getattr(orden, 'folio', 'n/a'), "Cargo:", orden.cargo],
+            ["Número de Orden:", str(orden.id)],
+            ["Fecha:", orden.fecha.strftime("%d/%m/%Y")],
+            ["Proveedor:", orden.proveedor_nombre],
+            ["RUT Proveedor:", orden.proveedor_rut],
+            ["Dirección Proveedor:", orden.proveedor_direccion],
+            ["Destinatario:", orden.destinatario or "-"],
         ]
-        order_table = Table(orden_info, colWidths=[120, 180, 80, 120], hAlign="LEFT")
+        order_table = Table(
+            orden_info,
+            colWidths=[120, 380],
+            hAlign="LEFT"
+        )
         order_table.setStyle(TableStyle([
-            ('FONTNAME',       (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE',       (0,0), (-1,-1), 10),
-            ('VALIGN',         (0,0), (-1,-1), 'TOP'),
-            ('ALIGN',          (0,0), (0,-1),  'RIGHT'),
-            ('ALIGN',          (1,0), (1,-1),  'LEFT'),
-            ('ALIGN',          (2,0), (2,-1),  'RIGHT'),
-            ('ALIGN',          (3,0), (3,-1),  'LEFT'),
-            ('BOTTOMPADDING',  (0,0), (-1,-1), 6),
+            ('FONTNAME',       (0,0), (-1,-1),    'Helvetica'),
+            ('FONTSIZE',       (0,0), (-1,-1),    10),
+            ('VALIGN',         (0,0), (-1,-1),    'TOP'),
+            ('ALIGN',          (0,0), (0,-1),     'RIGHT'),
+            ('ALIGN',          (1,0), (1,-1),     'LEFT'),
+            ('BOTTOMPADDING',  (0,0), (-1,-1),    6),
         ]))
         elements.append(order_table)
         elements.append(Spacer(1, 12))
@@ -308,25 +335,22 @@ class OrdenesPDFView(viewsets.ViewSet):
             repeatRows=1
         )
         detalle_table.setStyle(TableStyle([
-            ('BACKGROUND',  (0,0),  (-1,0),  colors.gray),
-            ('TEXTCOLOR',   (0,0),  (-1,0),  colors.whitesmoke),
-            ('FONTNAME',    (0,0),  (-1,0),  'Helvetica-Bold'),
-            ('ALIGN',       (0,0),  (-1,-1),'CENTER'),
-            # top-align y wrap en código y detalle
-            ('VALIGN',      (1,1),  (1,-1),  'TOP'),
-            ('VALIGN',      (2,1),  (2,-1),  'TOP'),
-            ('ALIGN',       (1,1),  (1,-1),  'LEFT'),
-            ('ALIGN',       (2,1),  (2,-1),  'LEFT'),
-            ('GRID',        (0,0),  (-1,-1), 0.5, colors.black),
+            ('BACKGROUND',  (0,0),   (-1,0),    colors.gray),
+            ('TEXTCOLOR',   (0,0),   (-1,0),    colors.whitesmoke),
+            ('FONTNAME',    (0,0),   (-1,0),    'Helvetica-Bold'),
+            ('ALIGN',       (0,0),   (-1,-1),   'CENTER'),
+            ('VALIGN',      (2,1),   (2,-1),    'TOP'),
+            ('ALIGN',       (2,1),   (2,-1),    'LEFT'),
+            ('GRID',        (0,0),   (-1,-1),   0.5, colors.black),
         ]))
         elements.append(detalle_table)
         elements.append(Spacer(1, 12))
 
         # --- Tabla de totales ---
         totales_data = [
-            ["Total Neto",  f"${format_currency(float(total_neto))}"],
-            ["IVA (19%)",   f"${format_currency(float(iva))}"],
-            ["Total Orden", f"${format_currency(float(total_orden))}"],
+            ["Total Neto",    f"${format_currency(float(total_neto))}"],
+            ["IVA (19%)",     f"${format_currency(float(iva))}"],
+            ["Total Orden",   f"${format_currency(float(total_orden))}"],
         ]
         totales_table = Table(
             totales_data,
@@ -334,10 +358,11 @@ class OrdenesPDFView(viewsets.ViewSet):
             hAlign="RIGHT"
         )
         totales_table.setStyle(TableStyle([
-            ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
-            ('FONTSIZE',      (0,0), (-1,-1), 10),
-            ('ALIGN',         (0,0), (1,-1),  'RIGHT'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('FONTNAME',      (0,0), (-1,-1),    'Helvetica'),
+            ('FONTSIZE',      (0,0), (-1,-1),    10),
+            ('ALIGN',         (0,0), (0,-1),     'RIGHT'),
+            ('ALIGN',         (1,0), (1,-1),     'RIGHT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1),    6),
         ]))
         elements.append(totales_table)
         elements.append(Spacer(1, 24))
@@ -353,17 +378,15 @@ class OrdenesPDFView(viewsets.ViewSet):
             hAlign="CENTER"
         )
         firmas_table.setStyle(TableStyle([
-            ('ALIGN',         (0,0), (-1,1),   'CENTER'),
-            ('BOTTOMPADDING', (0,0), (-1,1),   12),
-            ('TOPPADDING',    (0,0), (-1,1),   12),
+            ('ALIGN',          (0,0), (-1,1),    'CENTER'),
+            ('BOTTOMPADDING',  (0,0), (-1,1),    12),
+            ('TOPPADDING',     (0,0), (-1,1),    12),
         ]))
         elements.append(firmas_table)
 
-        # Construir y devolver PDF con nombre dinámico
+        # Construir PDF
         doc.build(elements)
         pdf = buffer.getvalue()
         buffer.close()
 
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="OC{orden.numero_orden}.pdf"'
-        return response
+        return HttpResponse(pdf, content_type='application/pdf')
