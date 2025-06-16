@@ -11,7 +11,7 @@ const Alertas = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axiosInstance.get('/api/bodega/alertas/')
+   axiosInstance.get('/bodega/alertas/')
       .then(response => {
         setAlertas(response.data);
         setLoading(false);
