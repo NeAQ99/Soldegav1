@@ -8,8 +8,9 @@ import InventarioPage from './pages/InventarioPage';
 import MovimientosPage from './pages/MovimientosPage';
 import Ordenes from './pages/Ordenes';
 import Solicitudes from './pages/Solicitiudes';
-import AlertasPage from './pages/AlertasPage';
+import Alertas from './pages/Alertas';
 import { AuthProvider } from './contexts/AuthContext';
+
 
 function App() {
   return (
@@ -23,7 +24,7 @@ function App() {
               <Route path="movimientos" element={<MovimientosPage />} />
               <Route path="ordenes" element={<Ordenes />} />
               <Route path="solicitudes" element={<Solicitudes />} />
-              <Route path="alertas" element={<AlertasPage />} />
+              <Route path="alertas" element={<Alertas />} />
             </Route>
           </Routes>
         </Router>
