@@ -2,12 +2,12 @@ import os
 import django
 from datetime import datetime
 from decimal import Decimal
+from bodega.models import Producto, Alerta
 
 # Setup del entorno Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'SolDega.settings')
 django.setup()
 
-from bodega.models import Producto, Alerta
 
 def generar_alertas_stock_bajo():
     productos = Producto.objects.all()
