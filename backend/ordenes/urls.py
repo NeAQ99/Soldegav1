@@ -14,5 +14,4 @@ router.register(r'detalles', OrdenCompraDetalleViewSet, basename='detalles')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('ordenes/reporte/generar_pdf/', OrdenesPDFView.as_view({'get': 'generar_pdf'}), name='ordenes-generar-pdf'),
 ]
