@@ -18,7 +18,7 @@ class AlertaViewSet(viewsets.ReadOnlyModelViewSet):
 
 @api_view(['POST'])
 def generar_alertas_programadas(request):
-    productos = Producto.objects.filter(stock__lte=F('stock_minimo'))
+    productos = Producto.objects.filter(stock_actual__lte=F('stock_minimo'))
 
     nuevas_alertas = []
     for producto in productos:
