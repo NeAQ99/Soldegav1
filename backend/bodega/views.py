@@ -26,7 +26,7 @@ def generar_alertas_programadas(request):
         if not existe:
             alerta = Alerta.objects.create(
                 producto=producto,
-                mensaje=f"Stock bajo el mínimo: {producto.nombre} ({producto.stock} ≤ {producto.stock_minimo})"
+                mensaje=f"Stock bajo el mínimo: {producto.nombre} ({producto.stock_actual} ≤ {producto.stock_minimo})"
             )
             nuevas_alertas.append(alerta.id)
 
