@@ -1,5 +1,7 @@
 from rest_framework import viewsets
 from .models import Producto
+from django.db.models import F
+from datetime import datetime
 from .serializers import ProductoSerializer
 from .models import Alerta
 from .serializers import AlertaSerializer
@@ -16,7 +18,7 @@ class AlertaViewSet(viewsets.ReadOnlyModelViewSet):
 
 @api_view(['POST'])
 def generar_alertas_programadas(request):
-    productos = Producto.objects.filter(stock__lte=models.F('stock_minimo'))
+    productos = Producto.objects.filter(stock__lte=F('stock_minimo'))
 
     nuevas_alertas = []
     for producto in productos:
