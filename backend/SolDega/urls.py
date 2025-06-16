@@ -5,8 +5,6 @@ from bodega.views import ProductoViewSet, AlertaViewSet  # ⬅️ Importa tu nue
 from django.views.generic import TemplateView
 
 router = routers.DefaultRouter()
-router.register(r'productos', ProductoViewSet)
-router.register(r'alertas', AlertaViewSet)  # ⬅️ Regístralo aquí
 
 urlpatterns = [
     path('admin/', admin.site.urls),
