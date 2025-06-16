@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Producto
+from .models import Alerta
 
 class ProductoSerializer(serializers.ModelSerializer):
     valor_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -21,3 +22,7 @@ class ProductoSerializer(serializers.ModelSerializer):
             'ubicacion',
             'valor_total'
         ]
+class AlertaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Alerta
+        fields = '__all__'

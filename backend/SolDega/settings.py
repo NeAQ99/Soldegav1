@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'movimientos',
     'ordenes',
     'maquinaria',
-    'alertas',
     'django_q',
 ]
 

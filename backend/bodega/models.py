@@ -20,3 +20,11 @@ class Producto(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
+class Alerta(models.Model):
+    producto = models.ForeignKey('Producto', on_delete=models.CASCADE, related_name='alertas')
+    mensaje = models.TextField()
+    fecha = models.DateTimeField(auto_now_add=True)
+    resuelta = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Alerta para {self.producto.nombre} - {self.fecha.strftime('%d-%m-%Y %H:%M')}"
