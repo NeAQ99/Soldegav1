@@ -1,12 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
-from bodega.views import ProductoViewSet, AlertaViewSet  # ⬅️ Importa tu nuevo ViewSet
+from bodega.views import ProductoViewSet # ⬅️ Importa tu nuevo ViewSet
 from django.views.generic import TemplateView
 
 router = routers.DefaultRouter()
 router.register(r'productos', ProductoViewSet)
-router.register(r'alertas', AlertaViewSet, basename='alerta')  # ⬅️ Registra el nuevo ViewSet
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
