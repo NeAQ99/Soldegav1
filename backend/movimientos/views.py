@@ -16,7 +16,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from .models import Entrada, Salida
-from .serializers import EntradaSerializer, SalidaSerializer, EntradaCreateSerializer
+from .serializers import EntradaSerializer, SalidaSerializer, EntradaCreateSerializer, EntradaReadSerializer
 from bodega.models import Producto
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle
 
@@ -48,8 +48,8 @@ class EntradaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         entradas = serializer.save()
-        # ahora usamos EntradaSerializer para serializar cada entrada creada
-        return Response(EntradaSerializer(entradas, many=True).data, status=status.HTTP_201_CREATED)
+        return Response(EntradaReadSerializer(entradas, many=True).data, status=status.HTTP_201_CREATED)
+
 
 
 

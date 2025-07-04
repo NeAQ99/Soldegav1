@@ -59,6 +59,11 @@ class EntradaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Entrada
         fields = ['motivo', 'comentario', 'items']
+class EntradaReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Entrada
+        fields = ['id', 'producto', 'cantidad', 'costo_unitario', 'motivo', 'comentario', 'orden_compra', 'usuario', 'fecha']
+
 
     
 class SalidaSerializer(serializers.ModelSerializer):
