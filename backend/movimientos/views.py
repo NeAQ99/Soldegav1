@@ -1,28 +1,33 @@
+# movimientos/views.py
 from datetime import datetime
 import io
 import logging
-from rest_framework import viewsets
+
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.utils.dateparse import parse_date
-from django.db.models import Sum 
-from ordenes.models import OrdenesCompras, OrdenCompraDetalle 
+from django.http import HttpResponse
+from django.db.models import Sum
+
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from django.http import HttpResponse
-from bodega.models import Producto  
-from rest_framework import status
 from reportlab.lib import colors
-from movimientos.models import Entrada, Salida
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
 from .models import Entrada, Salida
 from .serializers import EntradaSerializer, SalidaSerializer
+from bodega.models import Producto
+from ordenes.models import OrdenesCompras, OrdenCompraDetalle
+
+logger = logging.getLogger(__name__)  # ✅ Bien definido aquí
+
+
 class EntradaViewSet(viewsets.ModelViewSet):
     queryset = Entrada.objects.all()
     serializer_class = EntradaSerializer
 
-    def get_queryset(self):  # ✅ dentro de la clase ahora
+    def get_queryset(self):
         qs = Entrada.objects.select_related('producto', 'usuario', 'orden_compra').order_by('-fecha')
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
@@ -35,7 +40,7 @@ class EntradaViewSet(viewsets.ModelViewSet):
 
         return qs
 
-    def create(self, request, *args, **kwargs):  # ✅ también dentro de la clase
+    def create(self, request, *args, **kwargs):
         data = request.data
         items = data.get('items', [])
         motivo = data.get('motivo', '')
@@ -44,12 +49,13 @@ class EntradaViewSet(viewsets.ModelViewSet):
         created_entries = []
 
         logger.info(f"Payload recibido: {data}")
-        
+
         for item in items:
             logger.info(f"Procesando ítem: {item}")
             if not item.get('arrived', True):
                 logger.info("Ítem no marcado como 'arrived', forzando cantidad a 0")
                 item['cantidad'] = 0
+
             if not item.get('costo_unitario'):
                 try:
                     product = Producto.objects.get(id=item.get('producto'))
@@ -57,14 +63,18 @@ class EntradaViewSet(viewsets.ModelViewSet):
                     logger.info(f"Costo unitario asignado: {product.precio_compra}")
                 except Producto.DoesNotExist:
                     return Response({"error": "Producto no encontrado."}, status=status.HTTP_400_BAD_REQUEST)
+
             item['motivo'] = motivo
             item['comentario'] = comentario
+
             if motivo == 'recepcion_oc' and orden_compra_id:
                 item['orden_compra'] = orden_compra_id
+
             serializer = self.get_serializer(data=item)
             serializer.is_valid(raise_exception=True)
             entrada = serializer.save(usuario=request.user)
             created_entries.append(serializer.data)
+
             try:
                 product = Producto.objects.get(id=item.get('producto'))
                 logger.info(f"Stock actual antes: {product.stock_actual}")
@@ -79,11 +89,11 @@ class EntradaViewSet(viewsets.ModelViewSet):
 
 
 class SalidaViewSet(viewsets.ModelViewSet):
-    queryset = Salida.objects.all()  # Atributo por defecto
+    queryset = Salida.objects.all()
     serializer_class = SalidaSerializer
 
     def get_queryset(self):
-        qs = Salida.objects.all().order_by('-fecha')
+        qs = Salida.objects.select_related('producto', 'usuario').order_by('-fecha')
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
         if start_date and end_date:
@@ -98,6 +108,7 @@ class SalidaViewSet(viewsets.ModelViewSet):
         items = data.get('items', [])
         comentario = data.get('comentario', '')
         created_items = []
+
         for item in items:
             item['comentario'] = comentario
             serializer = self.get_serializer(data=item)
@@ -110,6 +121,7 @@ class SalidaViewSet(viewsets.ModelViewSet):
                 product.save()
             except Producto.DoesNotExist:
                 pass
+
         return Response(created_items, status=status.HTTP_201_CREATED)
 
 
