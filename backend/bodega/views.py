@@ -14,11 +14,15 @@ class ProductoViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        queryset = Producto.objects.all().order_by('codigo')
 
         search = self.request.query_params.get('search')
-
         if search:
-            qs = qs.filter(nombre__icontains=search)
-            return qs[:25]  # 🔚 Slice final
-        return qs[:10]  # 🔚 Slice sin filtros ni ordenamientos adicionales
+            queryset = queryset.filter(
+                Q(nombre__icontains=search) |
+                Q(codigo__icontains=search)
+            )[:25]
+        else:
+            queryset = queryset[:10]
+
+        return queryset 🔚 Slice sin filtros ni ordenamientos adicionales
