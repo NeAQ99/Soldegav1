@@ -93,13 +93,11 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 25,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
-    'MAX_PAGE_SIZE': 3000,  # 🔥 Permite cargar hasta 3000 productos si se solicita explícitamente
 }
-
 
 
 SIMPLE_JWT = {

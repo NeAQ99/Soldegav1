@@ -53,8 +53,20 @@ function InventarioPage() {
 
 const fetchProductos = async () => {
   try {
-    const response = await axiosInstance.get('productos/');
-    setProductos(response.data);
+    let allProducts = [];
+    let page = 1;
+    let next = true;
+
+    while (next) {
+      const response = await axiosInstance.get('productos/', {
+        params: { page }
+      });
+      allProducts = [...allProducts, ...response.data.results];
+      next = response.data.next !== null;
+      page += 1;
+    }
+
+    setProductos(allProducts);
   } catch (error) {
     console.error('Error al cargar productos:', error);
     showSnackbar("Error al cargar productos", "error");
