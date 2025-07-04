@@ -16,7 +16,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from .models import Entrada, Salida
-from .serializers import EntradaSerializer, SalidaSerializer
+from .serializers import EntradaSerializer, SalidaSerializer, EntradaCreateSerializer
 from bodega.models import Producto
 from ordenes.models import OrdenesCompras, OrdenCompraDetalle
 
