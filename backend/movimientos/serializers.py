@@ -21,41 +21,40 @@ class EntradaSerializer(serializers.Serializer):
     items = EntradaItemSerializer(many=True)
 
     def create(self, validated_data):
-        usuario = self.context['request'].user
-        motivo = validated_data['motivo']
-        comentario = validated_data['comentario']
-        items_data = validated_data['items']
+    usuario = self.context['request'].user
+    motivo = validated_data['motivo']
+    comentario = validated_data['comentario']
+    items_data = validated_data['items']
 
-        entradas = []
-        for item in items_data:
-            producto = item['producto']
-            cantidad = item['cantidad']
-            costo_unitario = item['costo_unitario']
-            orden_compra = item.get('orden_compra')
-            actualizar_precio = item.get('actualizar_precio', False)
+    entradas = []
+    for item_data in items_data:
+        producto = item_data['producto']
+        cantidad = item_data['cantidad']
+        costo_unitario = item_data['costo_unitario']
+        orden_compra = item_data.get('orden_compra')
 
-            # Crear la entrada
-            entrada = Entrada.objects.create(
-                usuario=usuario,
-                motivo=motivo,
-                comentario=comentario,
-                producto=producto,
-                cantidad=cantidad,
-                costo_unitario=costo_unitario,
-                orden_compra=orden_compra
-            )
+        # Crear la entrada
+        entrada = Entrada.objects.create(
+            usuario=usuario,
+            motivo=motivo,
+            comentario=comentario,
+            producto=producto,
+            cantidad=cantidad,
+            costo_unitario=costo_unitario,
+            orden_compra=orden_compra
+        )
 
-            # Actualizar el stock
-            producto.stock += cantidad
+        # Actualizar stock
+        producto.stock_actual += cantidad
 
-            # Actualizar precio si corresponde
-            if actualizar_precio:
-                producto.precio = costo_unitario
+        # Si se indica que debe actualizar el precio
+        if item_data.get('actualizar_precio', False):
+            producto.precio_compra = costo_unitario
 
-            producto.save()
-            entradas.append(entrada)
+        producto.save()
+        entradas.append(entrada)
 
-        return entradas
+    return entradas
 
 
 class SalidaSerializer(serializers.ModelSerializer):
