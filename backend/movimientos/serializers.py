@@ -1,38 +1,62 @@
 # movimientos/serializers.py
 from rest_framework import serializers
 from .models import Entrada, Salida
+from bodega.models import Producto
+from ordenes.models import OrdenesCompras
 
-class EntradaSerializer(serializers.ModelSerializer):
-    producto_info = serializers.SerializerMethodField()
-    # Agregamos un campo para incluir el número de orden en caso de OC
-    orden_compra_info = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Entrada
-        fields = [
-            'producto',
-            'producto_info',
-            'cantidad',
-            'costo_unitario',
-            'motivo',
-            'comentario',
-            'usuario',
-            'fecha',
-            'orden_compra',
-            'orden_compra_info'
-        ]
-        extra_kwargs = {
-            'usuario': {'read_only': True}
-        }
+class EntradaItemSerializer(serializers.Serializer):
+    producto = serializers.PrimaryKeyRelatedField(queryset=Producto.objects.all())
+    cantidad = serializers.IntegerField()
+    costo_unitario = serializers.DecimalField(max_digits=10, decimal_places=2)
+    orden_compra = serializers.PrimaryKeyRelatedField(
+        queryset=OrdenesCompras.objects.all(), allow_null=True, required=False
+    )
+    actualizar_precio = serializers.BooleanField(default=False)
 
-    def get_producto_info(self, obj):
-        return f"{obj.producto.codigo} - {obj.producto.nombre}"
 
-    def get_orden_compra_info(self, obj):
-        # Si existe una orden de compra, retorna el número con el prefijo "OC"
-        if obj.orden_compra and obj.orden_compra.numero_orden:
-            return f"OC {obj.orden_compra.numero_orden}"
-        return None
+class EntradaSerializer(serializers.Serializer):
+    motivo = serializers.CharField()
+    comentario = serializers.CharField(allow_blank=True)
+    items = EntradaItemSerializer(many=True)
+
+    def create(self, validated_data):
+        usuario = self.context['request'].user
+        motivo = validated_data['motivo']
+        comentario = validated_data['comentario']
+        items_data = validated_data['items']
+
+        entradas = []
+        for item in items_data:
+            producto = item['producto']
+            cantidad = item['cantidad']
+            costo_unitario = item['costo_unitario']
+            orden_compra = item.get('orden_compra')
+            actualizar_precio = item.get('actualizar_precio', False)
+
+            # Crear la entrada
+            entrada = Entrada.objects.create(
+                usuario=usuario,
+                motivo=motivo,
+                comentario=comentario,
+                producto=producto,
+                cantidad=cantidad,
+                costo_unitario=costo_unitario,
+                orden_compra=orden_compra
+            )
+
+            # Actualizar el stock
+            producto.stock += cantidad
+
+            # Actualizar precio si corresponde
+            if actualizar_precio:
+                producto.precio = costo_unitario
+
+            producto.save()
+            entradas.append(entrada)
+
+        return entradas
+
 
 class SalidaSerializer(serializers.ModelSerializer):
     producto_info = serializers.SerializerMethodField()
