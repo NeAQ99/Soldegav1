@@ -4,7 +4,7 @@ from .models import Producto
 from .serializers import ProductoSerializer
 
 class ProductoViewSet(viewsets.ModelViewSet):
-    queryset = Producto.objects.all()  # 👈 ¡Esta línea es obligatoria!
+    queryset = Producto.objects.all()  # ✅ Necesario para evitar errores con el router
     serializer_class = ProductoSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['nombre', 'codigo']
@@ -12,10 +12,13 @@ class ProductoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nombre', 'codigo']
     ordering = ['codigo']
     pagination_class = None
-    
+
     def get_queryset(self):
-        queryset = Producto.objects.all().order_by('codigo')
+        qs = super().get_queryset()
+
         search = self.request.query_params.get('search')
+
         if search:
-            return queryset.filter(nombre__icontains=search)[:25]
-        return queryset[:10]
+            qs = qs.filter(nombre__icontains=search)
+            return qs[:25]  # 🔚 Slice final
+        return qs[:10]  # 🔚 Slice sin filtros ni ordenamientos adicionales
