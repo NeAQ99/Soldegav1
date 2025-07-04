@@ -4,17 +4,18 @@ from .models import Producto
 from .serializers import ProductoSerializer
 
 class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all()  # 👈 ¡Esta línea es obligatoria!
     serializer_class = ProductoSerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
     search_fields = ['nombre', 'codigo']
     filterset_fields = ['nombre', 'codigo']
     ordering_fields = ['nombre', 'codigo']
     ordering = ['codigo']
-    pagination_class = None  # Desactiva paginación
-
+    pagination_class = None
+    
     def get_queryset(self):
         queryset = Producto.objects.all().order_by('codigo')
         search = self.request.query_params.get('search')
         if search:
             return queryset.filter(nombre__icontains=search)[:25]
-        return queryset[:20]
+        return queryset[:10]
