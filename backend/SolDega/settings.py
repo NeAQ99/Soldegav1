@@ -97,6 +97,7 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
+    'MAX_PAGE_SIZE': 3000,  # 🔥 Permite cargar hasta 3000 productos si se solicita explícitamente
 }
 
 

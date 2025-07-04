@@ -51,17 +51,17 @@ function InventarioPage() {
     fetchOrdenes();
   }, []);
 
-  const fetchProductos = async () => {
-    try {
-      const response = await axiosInstance.get('productos/');
-      setProductos(response.data);
-    } catch (error) {
-      console.error('Error al cargar productos:', error);
-      showSnackbar("Error al cargar productos", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchProductos = async () => {
+  try {
+    const response = await axiosInstance.get('productos/');
+    setProductos(response.data);
+  } catch (error) {
+    console.error('Error al cargar productos:', error);
+    showSnackbar("Error al cargar productos", "error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchOrdenes = async () => {
     try {

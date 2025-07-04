@@ -11,3 +11,4 @@ class ProductoViewSet(viewsets.ModelViewSet):
     filterset_fields = ['nombre', 'codigo']
     ordering_fields = ['nombre', 'codigo']
     ordering = ['codigo']
+    pagination_class = None  
