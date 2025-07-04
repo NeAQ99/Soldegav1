@@ -22,37 +22,42 @@ class EntradaSerializer(serializers.ModelSerializer):
         model = Entrada
         fields = ['motivo', 'comentario', 'items']
 
-    def create(self, validated_data):
-        usuario = self.context['request'].user
-        motivo = validated_data.get('motivo')
-        comentario = validated_data.get('comentario')
-        items_data = validated_data.get('items', [])
+def create(self, validated_data):
+    usuario = self.context['request'].user
+    motivo = validated_data.get('motivo')
+    comentario = validated_data.get('comentario')
+    items_data = validated_data.pop('items', [])
 
-        entradas_creadas = []
+    entrada = Entrada.objects.create(
+        usuario=usuario,
+        motivo=motivo,
+        comentario=comentario,
+        # agrega más campos si necesitas
+    )
 
-        for item in items_data:
-            producto = item['producto']
-            cantidad = item['cantidad']
-            costo_unitario = item['costo_unitario']
-            orden_compra = item.get('orden_compra')
+    for item in items_data:
+        producto = item['producto']
+        cantidad = item['cantidad']
+        costo_unitario = item['costo_unitario']
+        orden_compra = item.get('orden_compra')
 
-            entrada = Entrada.objects.create(
-                usuario=usuario,
-                motivo=motivo,
-                comentario=comentario,
-                producto=producto,
-                cantidad=cantidad,
-                costo_unitario=costo_unitario,
-                orden_compra=orden_compra,
-            )
+        # Si estás usando el mismo modelo Entrada, podrías modelarlo de otra forma.
+        # Pero aquí asumimos que cada Entrada representa un solo grupo.
 
-            # Actualizar el stock del producto
-            producto.stock_actual += cantidad
-            producto.save()
+        Entrada.objects.create(
+            usuario=usuario,
+            motivo=motivo,
+            comentario=comentario,
+            producto=producto,
+            cantidad=cantidad,
+            costo_unitario=costo_unitario,
+            orden_compra=orden_compra,
+        )
 
-            entradas_creadas.append(entrada)
+        producto.stock_actual += cantidad
+        producto.save()
 
-        return entradas_creadas
+    return entrada  # ✅ Ya no devuelves una lista
 
 
 class SalidaSerializer(serializers.ModelSerializer):
