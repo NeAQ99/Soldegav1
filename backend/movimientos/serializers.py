@@ -20,7 +20,7 @@ class EntradaSerializer(serializers.Serializer):
     comentario = serializers.CharField(allow_blank=True)
     items = EntradaItemSerializer(many=True)
 
-    def create(self, validated_data):
+def create(self, validated_data):
     usuario = self.context['request'].user
     motivo = validated_data['motivo']
     comentario = validated_data['comentario']
