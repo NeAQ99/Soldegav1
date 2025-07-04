@@ -34,8 +34,12 @@ def format_currency(value):
     return s
 
 class ProveedorViewSet(viewsets.ModelViewSet):
-    queryset = Proveedor.objects.all().order_by('nombre_proveedor')
+    queryset = Proveedor.objects.all()
     serializer_class = ProveedorSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre_proveedor', 'rut']
+    ordering_fields = ['nombre_proveedor']
+    ordering = ['nombre_proveedor']
 
 class SolicitudViewSet(viewsets.ModelViewSet):
     queryset = Solicitud.objects.all().order_by('-fecha_creacion')

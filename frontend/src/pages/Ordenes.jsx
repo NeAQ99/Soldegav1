@@ -1,5 +1,5 @@
 // src/pages/OrdenesPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -38,7 +38,7 @@ function Ordenes() {
   const [proveedores, setProveedores] = useState([]);
   const [productos, setProductos] = useState([]);
 
-  const fetchOrdenes = useCallback(async () => {
+  const fetchOrdenes = async () => {
     setLoading(true);
     try {
       const response = await axiosInstance.get('ordenes/ordenes/', {
@@ -56,39 +56,35 @@ function Ordenes() {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchTerm, fechaFiltro]);
+  };
+
+  const fetchProveedores = async () => {
+    try {
+      const response = await axiosInstance.get('ordenes/proveedores/', {
+        params: { page_size: 1000 }
+      });
+      setProveedores(response.data.results || []);
+    } catch (error) {
+      console.error('Error al cargar proveedores:', error);
+    }
+  };
+
+  const fetchProductos = async () => {
+    try {
+      const response = await axiosInstance.get('productos/', {
+        params: { page_size: 3000 }
+      });
+      setProductos(response.data.results || []);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+    }
+  };
 
   useEffect(() => {
     fetchOrdenes();
-  }, [fetchOrdenes]);
-
-const fetchProveedores = async () => {
-  try {
-    const response = await axiosInstance.get('ordenes/proveedores/');
-    const data = response.data;
-    setProveedores(Array.isArray(data) ? data : []);
-  } catch (error) {
-    console.error('Error al cargar proveedores:', error);
-    setProveedores([]);  // Evita que quede undefined
-  }
-};
-
-const fetchProductos = async () => {
-  try {
-    const response = await axiosInstance.get('productos/');
-    const data = response.data;
-    setProductos(Array.isArray(data) ? data : []);
-  } catch (error) {
-    console.error('Error al cargar productos:', error);
-    setProductos([]);  // Igual que arriba
-  }
-};
-
-useEffect(() => {
-  fetchProveedores();
-  fetchProductos();
-}, []);
-
+    fetchProveedores();
+    fetchProductos();
+  }, [page, rowsPerPage, searchTerm, fechaFiltro]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
