@@ -14,16 +14,10 @@ class EntradaItemSerializer(serializers.Serializer):
     actualizar_precio = serializers.BooleanField(default=False)
 
 
-class EntradaSerializer(serializers.ModelSerializer):
-    items = EntradaItemSerializer(many=True, write_only=True)
+class EntradaSerializer(serializers.Serializer):
+    motivo = serializers.CharField()
     comentario = serializers.CharField(allow_blank=True)
-
-    class Meta:
-        model = Entrada
-        fields = ['motivo', 'comentario', 'items']  # 'items' solo se usa para input
-        extra_kwargs = {
-            'comentario': {'required': False}
-        }
+    items = EntradaItemSerializer(many=True)
 
     def create(self, validated_data):
         usuario = self.context['request'].user
@@ -31,33 +25,23 @@ class EntradaSerializer(serializers.ModelSerializer):
         comentario = validated_data.get('comentario')
         items_data = validated_data.pop('items', [])
 
-        entradas_creadas = []
-
+        entradas = []
         for item in items_data:
-            producto = item['producto']
-            cantidad = item['cantidad']
-            costo_unitario = item['costo_unitario']
-            orden_compra = item.get('orden_compra')
-
             entrada = Entrada.objects.create(
                 usuario=usuario,
                 motivo=motivo,
                 comentario=comentario,
-                producto=producto,
-                cantidad=cantidad,
-                costo_unitario=costo_unitario,
-                orden_compra=orden_compra,
+                producto=item['producto'],
+                cantidad=item['cantidad'],
+                costo_unitario=item['costo_unitario'],
+                orden_compra=item.get('orden_compra')
             )
-
-            # Actualizar stock
-            producto.stock_actual += cantidad
+            producto = item['producto']
+            producto.stock_actual += int(item['cantidad'])
             producto.save()
+            entradas.append(entrada)
 
-            entradas_creadas.append(entrada)
-
-        # Devolver una sola entrada o personalizar la respuesta si es necesario
-        return entradas_creadas[0] if len(entradas_creadas) == 1 else entradas_creadas
-
+        return entradas
     
 class SalidaSerializer(serializers.ModelSerializer):
     producto_info = serializers.SerializerMethodField()

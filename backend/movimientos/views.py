@@ -41,51 +41,11 @@ class EntradaViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        data = request.data
-        items = data.get('items', [])
-        motivo = data.get('motivo', '')
-        comentario = data.get('comentario', '')
-        orden_compra_id = data.get('orden_compra', None)
-        created_entries = []
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entradas = serializer.save()
+        return Response(self.get_serializer(entradas, many=True).data, status=status.HTTP_201_CREATED)
 
-        logger.info(f"Payload recibido: {data}")
-
-        for item in items:
-            logger.info(f"Procesando ítem: {item}")
-            if not item.get('arrived', True):
-                logger.info("Ítem no marcado como 'arrived', forzando cantidad a 0")
-                item['cantidad'] = 0
-
-            if not item.get('costo_unitario'):
-                try:
-                    product = Producto.objects.get(id=item.get('producto'))
-                    item['costo_unitario'] = product.precio_compra
-                    logger.info(f"Costo unitario asignado: {product.precio_compra}")
-                except Producto.DoesNotExist:
-                    return Response({"error": "Producto no encontrado."}, status=status.HTTP_400_BAD_REQUEST)
-
-            item['motivo'] = motivo
-            item['comentario'] = comentario
-
-            if motivo == 'recepcion_oc' and orden_compra_id:
-                item['orden_compra'] = orden_compra_id
-
-            serializer = self.get_serializer(data=item)
-            serializer.is_valid(raise_exception=True)
-            entrada = serializer.save(usuario=request.user)
-            created_entries.append(serializer.data)
-
-            try:
-                product = Producto.objects.get(id=item.get('producto'))
-                logger.info(f"Stock actual antes: {product.stock_actual}")
-                product.stock_actual += int(item.get('cantidad'))
-                product.save()
-                logger.info(f"Stock actual después: {product.stock_actual}")
-            except Producto.DoesNotExist:
-                pass
-
-        logger.info(f"Entradas creadas: {created_entries}")
-        return Response(created_entries, status=status.HTTP_201_CREATED)
 
 
 class SalidaViewSet(viewsets.ModelViewSet):
