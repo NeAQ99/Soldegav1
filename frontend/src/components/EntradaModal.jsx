@@ -94,11 +94,11 @@ function EntradaModal({ open, onClose, onSubmit, productos }) {
               ? parseInt(item.cantidad, 10)
               : 0
             : parseInt(item.cantidad, 10),
-        costo_unitario: item.editingPrecio
-          ? parseFloat(item.costo_unitario)
-          : item.producto
-          ? parseFloat(item.producto.precio_compra)
-          : null,
+       costo_unitario: item.editingPrecio
+  ? parseFloat(item.costo_unitario).toFixed(2)
+  : item.producto
+  ? parseFloat(item.producto.precio_compra).toFixed(2)
+  : "0.00",
         actualizar_precio: item.actualizar_precio || false,
       })),
       motivo: motivo === 'orden de compra' ? 'recepcion_oc' : motivo,
