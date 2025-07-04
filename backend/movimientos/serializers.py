@@ -1,4 +1,3 @@
-# movimientos/serializers.py
 from rest_framework import serializers
 from .models import Entrada, Salida
 from bodega.models import Producto
@@ -15,46 +14,45 @@ class EntradaItemSerializer(serializers.Serializer):
     actualizar_precio = serializers.BooleanField(default=False)
 
 
-class EntradaSerializer(serializers.Serializer):
-    motivo = serializers.CharField()
-    comentario = serializers.CharField(allow_blank=True)
+class EntradaSerializer(serializers.ModelSerializer):
     items = EntradaItemSerializer(many=True)
+    comentario = serializers.CharField(allow_blank=True)
 
-def create(self, validated_data):
-    usuario = self.context['request'].user
-    motivo = validated_data['motivo']
-    comentario = validated_data['comentario']
-    items_data = validated_data['items']
+    class Meta:
+        model = Entrada
+        fields = ['motivo', 'comentario', 'items']
 
-    entradas = []
-    for item_data in items_data:
-        producto = item_data['producto']
-        cantidad = item_data['cantidad']
-        costo_unitario = item_data['costo_unitario']
-        orden_compra = item_data.get('orden_compra')
+    def create(self, validated_data):
+        usuario = self.context['request'].user
+        motivo = validated_data.get('motivo')
+        comentario = validated_data.get('comentario')
+        items_data = validated_data.get('items', [])
 
-        # Crear la entrada
-        entrada = Entrada.objects.create(
-            usuario=usuario,
-            motivo=motivo,
-            comentario=comentario,
-            producto=producto,
-            cantidad=cantidad,
-            costo_unitario=costo_unitario,
-            orden_compra=orden_compra
-        )
+        entradas_creadas = []
 
-        # Actualizar stock
-        producto.stock_actual += cantidad
+        for item in items_data:
+            producto = item['producto']
+            cantidad = item['cantidad']
+            costo_unitario = item['costo_unitario']
+            orden_compra = item.get('orden_compra')
 
-        # Si se indica que debe actualizar el precio
-        if item_data.get('actualizar_precio', False):
-            producto.precio_compra = costo_unitario
+            entrada = Entrada.objects.create(
+                usuario=usuario,
+                motivo=motivo,
+                comentario=comentario,
+                producto=producto,
+                cantidad=cantidad,
+                costo_unitario=costo_unitario,
+                orden_compra=orden_compra,
+            )
 
-        producto.save()
-        entradas.append(entrada)
+            # Actualizar el stock del producto
+            producto.stock_actual += cantidad
+            producto.save()
 
-    return entradas
+            entradas_creadas.append(entrada)
+
+        return entradas_creadas
 
 
 class SalidaSerializer(serializers.ModelSerializer):
