@@ -54,11 +54,19 @@ class EntradaCreateSerializer(serializers.Serializer):
         return entradas
     
 class EntradaSerializer(serializers.ModelSerializer):
-    items = EntradaItemSerializer(many=True)
-
     class Meta:
         model = Entrada
-        fields = ['motivo', 'comentario', 'items']
+        fields = [
+            'id',
+            'producto',
+            'cantidad',
+            'costo_unitario',
+            'motivo',
+            'comentario',
+            'usuario',
+            'fecha',
+            'orden_compra',
+        ]
 class EntradaReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Entrada
