@@ -53,10 +53,13 @@ class EntradaCreateSerializer(serializers.Serializer):
 
         return entradas
     
-    class EntradaSerializer(serializers.ModelSerializer):
+class EntradaSerializer(serializers.ModelSerializer):
+    items = EntradaItemSerializer(many=True)
+
     class Meta:
         model = Entrada
-        fields = '__all__'
+        fields = ['motivo', 'comentario', 'items']
+
     
 class SalidaSerializer(serializers.ModelSerializer):
     producto_info = serializers.SerializerMethodField()
