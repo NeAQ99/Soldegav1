@@ -8,40 +8,55 @@ class EntradaItemSerializer(serializers.Serializer):
     producto = serializers.PrimaryKeyRelatedField(queryset=Producto.objects.all())
     cantidad = serializers.IntegerField()
     costo_unitario = serializers.DecimalField(max_digits=10, decimal_places=2)
+    actualizar_precio = serializers.BooleanField(required=False, default=False)
     orden_compra = serializers.PrimaryKeyRelatedField(
-        queryset=OrdenesCompras.objects.all(), allow_null=True, required=False
+        queryset=OrdenesCompras.objects.all(),
+        required=False,
+        allow_null=True
     )
-    actualizar_precio = serializers.BooleanField(default=False)
 
 
-class EntradaSerializer(serializers.Serializer):
+class EntradaCreateSerializer(serializers.Serializer):
     motivo = serializers.CharField()
     comentario = serializers.CharField(allow_blank=True)
     items = EntradaItemSerializer(many=True)
 
     def create(self, validated_data):
         usuario = self.context['request'].user
-        motivo = validated_data.get('motivo')
-        comentario = validated_data.get('comentario')
-        items_data = validated_data.pop('items', [])
-
+        motivo = validated_data['motivo']
+        comentario = validated_data['comentario']
+        items = validated_data['items']
         entradas = []
-        for item in items_data:
+
+        for item in items:
+            producto = item['producto']
+            cantidad = item['cantidad']
+            costo_unitario = item['costo_unitario']
+            orden_compra = item.get('orden_compra', None)
+
             entrada = Entrada.objects.create(
                 usuario=usuario,
                 motivo=motivo,
                 comentario=comentario,
-                producto=item['producto'],
-                cantidad=item['cantidad'],
-                costo_unitario=item['costo_unitario'],
-                orden_compra=item.get('orden_compra')
+                producto=producto,
+                cantidad=cantidad,
+                costo_unitario=costo_unitario,
+                orden_compra=orden_compra
             )
-            producto = item['producto']
-            producto.stock_actual += int(item['cantidad'])
+
+            producto.stock_actual += cantidad
+            if item.get('actualizar_precio', False):
+                producto.precio_compra = costo_unitario
             producto.save()
+
             entradas.append(entrada)
 
         return entradas
+    
+    class EntradaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Entrada
+        fields = '__all__'
     
 class SalidaSerializer(serializers.ModelSerializer):
     producto_info = serializers.SerializerMethodField()

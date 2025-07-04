@@ -25,7 +25,11 @@ logger = logging.getLogger(__name__)  # ✅ Bien definido aquí
 
 class EntradaViewSet(viewsets.ModelViewSet):
     queryset = Entrada.objects.all()
-    serializer_class = EntradaSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return EntradaCreateSerializer
+        return EntradaSerializer
 
     def get_queryset(self):
         qs = Entrada.objects.select_related('producto', 'usuario', 'orden_compra').order_by('-fecha')
@@ -44,7 +48,8 @@ class EntradaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         entradas = serializer.save()
-        return Response(self.get_serializer(entradas, many=True).data, status=status.HTTP_201_CREATED)
+        # ahora usamos EntradaSerializer para serializar cada entrada creada
+        return Response(EntradaSerializer(entradas, many=True).data, status=status.HTTP_201_CREATED)
 
 
 
