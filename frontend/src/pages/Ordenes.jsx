@@ -25,6 +25,7 @@ import OrdenDetalleModal from '../components/OrdenDetalleModal';
 
 function Ordenes() {
   const [ordenes, setOrdenes] = useState([]);
+  const [totalOrdenes, setTotalOrdenes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,18 +41,22 @@ function Ordenes() {
   const fetchOrdenes = useCallback(async () => {
     setLoading(true);
     try {
-      let url = 'ordenes/ordenes/';
-      const params = [];
-      if (searchTerm) params.push(`search=${encodeURIComponent(searchTerm)}`);
-      if (params.length > 0) url += '?' + params.join('&');
-      const response = await axiosInstance.get(url);
-      setOrdenes(response.data);
+      const response = await axiosInstance.get('ordenes/ordenes/', {
+        params: {
+          page: page + 1,
+          page_size: rowsPerPage,
+          search: searchTerm || undefined,
+          fecha: fechaFiltro ? fechaFiltro.toISOString().split('T')[0] : undefined,
+        },
+      });
+      setOrdenes(response.data.results);
+      setTotalOrdenes(response.data.count);
     } catch (error) {
       console.error('Error al cargar órdenes:', error);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [page, rowsPerPage, searchTerm, fechaFiltro]);
 
   useEffect(() => {
     fetchOrdenes();
@@ -79,22 +84,6 @@ function Ordenes() {
     fetchProveedores();
     fetchProductos();
   }, []);
-
-  const ordenesFiltradas = ordenes.filter((orden) => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch =
-      orden.numero_orden.toLowerCase().includes(term) ||
-      (orden.usuario && orden.usuario.username.toLowerCase().includes(term)) ||
-      orden.estado.toLowerCase().includes(term);
-    
-    let matchDate = true;
-    if (fechaFiltro) {
-      const selectedDate = fechaFiltro.toISOString().split('T')[0];
-      const orderDate = new Date(orden.fecha).toISOString().split('T')[0];
-      matchDate = selectedDate === orderDate;
-    }
-    return matchSearch && matchDate;
-  });
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -160,7 +149,6 @@ function Ordenes() {
 
   return (
     <Container>
-      {/* Encabezado y botones */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', my: 2 }}>
         <Typography variant="h5">Órdenes de Compra</Typography>
         <Box>
@@ -172,8 +160,7 @@ function Ordenes() {
           </IconButton>
         </Box>
       </Box>
-      
-      {/* Barra de búsqueda y filtros */}
+
       <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
         <TextField
           label="Buscar (N° Orden, Usuario, Estado)"
@@ -196,8 +183,7 @@ function Ordenes() {
           renderInput={(params) => <TextField {...params} sx={{ width: 200 }} />}
         />
       </Box>
-      
-      {/* Tabla de Órdenes */}
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead sx={{ backgroundColor: 'red' }}>
@@ -210,29 +196,27 @@ function Ordenes() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {ordenesFiltradas
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((orden) => (
-                <TableRow key={orden.id}>
-                  <TableCell>{orden.numero_orden}</TableCell>
-                  <TableCell>{orden.estado}</TableCell>
-                  <TableCell>{new Date(orden.fecha).toLocaleDateString()}</TableCell>
-                  <TableCell>{orden.usuario ? orden.usuario.username : 'Desconocido'}</TableCell>
-                  <TableCell>
-                    <Button variant="outlined" onClick={() => handleMoreDetails(orden)} sx={{ mr: 1 }}>
-                      Más Detalle
-                    </Button>
-                    <Button variant="contained" color="primary" onClick={() => handleDownloadPDF(orden.id)}>
-                      Descargar PDF
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+            {ordenes.map((orden) => (
+              <TableRow key={orden.id}>
+                <TableCell>{orden.numero_orden}</TableCell>
+                <TableCell>{orden.estado}</TableCell>
+                <TableCell>{new Date(orden.fecha).toLocaleDateString()}</TableCell>
+                <TableCell>{orden.usuario ? orden.usuario.username : 'Desconocido'}</TableCell>
+                <TableCell>
+                  <Button variant="outlined" onClick={() => handleMoreDetails(orden)} sx={{ mr: 1 }}>
+                    Más Detalle
+                  </Button>
+                  <Button variant="contained" color="primary" onClick={() => handleDownloadPDF(orden.id)}>
+                    Descargar PDF
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
         <TablePagination
           component="div"
-          count={ordenesFiltradas.length}
+          count={totalOrdenes}
           page={page}
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
@@ -240,7 +224,7 @@ function Ordenes() {
           rowsPerPageOptions={[5, 10, 25]}
         />
       </TableContainer>
-      
+
       {openCrearOC && (
         <CrearOCModal
           open={openCrearOC}
@@ -250,7 +234,7 @@ function Ordenes() {
           productos={productos}
         />
       )}
-      
+
       {ordenDetalle && (
         <OrdenDetalleModal
           open={openDetalle}

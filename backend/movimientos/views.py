@@ -23,17 +23,19 @@ logger = logging.getLogger(__name__)
 class EntradaViewSet(viewsets.ModelViewSet):
     queryset = Entrada.objects.all()  # Atributo por defecto
     serializer_class = EntradaSerializer
+def get_queryset(self):
+    qs = Entrada.objects.select_related('producto', 'usuario', 'orden_compra').order_by('-fecha')
+    
+    start_date = self.request.query_params.get('start_date')
+    end_date = self.request.query_params.get('end_date')
+    if start_date and end_date:
+        qs = qs.filter(fecha__date__gte=start_date, fecha__date__lte=end_date)
 
-    def get_queryset(self):
-        qs = Entrada.objects.all().order_by('-fecha')
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-        if start_date and end_date:
-            qs = qs.filter(fecha__date__gte=start_date, fecha__date__lte=end_date)
-        consignacion_param = self.request.query_params.get('consignacion')
-        if consignacion_param and consignacion_param.lower() == "true":
-            qs = qs.filter(producto__consignacion=True)
-        return qs
+    consignacion_param = self.request.query_params.get('consignacion')
+    if consignacion_param and consignacion_param.lower() == "true":
+        qs = qs.filter(producto__consignacion=True)
+
+    return qs
 
 
     def create(self, request, *args, **kwargs):

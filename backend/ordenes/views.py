@@ -1,7 +1,7 @@
 import io
 from datetime import datetime, timedelta
 from decimal import Decimal
-
+from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.staticfiles import finders
 from django.http import HttpResponse
 from rest_framework import status, viewsets
@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet , ParagraphStyle
+
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 
@@ -167,6 +169,12 @@ class SolicitudPDFView(viewsets.ViewSet):
         return response
 
 class OrdenesComprasViewSet(viewsets.ModelViewSet):
+    ...
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['numero_orden', 'estado']  # asegúrate que 'usuario' esté en el modelo o relación
+    filterset_fields = ['fecha']  # o más si deseas
+    ordering_fields = ['fecha']
+    ordering = ['-fecha']
     """
     ViewSet para gestionar las órdenes de compra.
     Se asigna el correlativo de forma independiente según la empresa.
