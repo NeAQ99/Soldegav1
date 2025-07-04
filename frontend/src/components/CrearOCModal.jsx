@@ -14,8 +14,9 @@ import {
   Typography,
 } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import axiosInstance from '../api/axiosInstance';
 
-function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
+function CrearOCModal({ open, onClose, onSubmit }) {
   const [empresa, setEmpresa] = useState('');
   const [nroCotizacion, setNroCotizacion] = useState('');
   const [mercaderiaPuestaEn, setMercaderiaPuestaEn] = useState('');
@@ -28,6 +29,35 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
     { producto: '', cantidad: '', precio_unitario: '' },
   ]);
   const [errors, setErrors] = useState({});
+
+  const [opcionesProveedores, setOpcionesProveedores] = useState([]);
+  const [opcionesProductos, setOpcionesProductos] = useState([]);
+
+  const buscarProveedores = async (input) => {
+    try {
+      const response = await axiosInstance.get('ordenes/proveedores/', {
+        params: { search: input }
+      });
+      setOpcionesProveedores(response.data.results || []);
+    } catch (error) {
+      console.error('Error buscando proveedores:', error);
+    }
+  };
+
+  const buscarProductos = async (input) => {
+    try {
+      const response = await axiosInstance.get('productos/', {
+        params: { search: input }
+      });
+      setOpcionesProductos(response.data.results || []);
+    } catch (error) {
+      console.error('Error buscando productos:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (open) setErrors({});
+  }, [open]);
 
   const formaPagoOptions = [
     "30 días recepción de factura",
@@ -110,10 +140,6 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
     }
   };
 
-  useEffect(() => {
-    if (open) setErrors({});
-  }, [open]);
-
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Nueva Orden de Compra</DialogTitle>
@@ -129,17 +155,20 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
         </FormControl>
         <TextField margin="dense" label="N° Cotización" fullWidth variant="standard" value={nroCotizacion} onChange={(e) => setNroCotizacion(e.target.value)} error={Boolean(errors.nroCotizacion)} helperText={errors.nroCotizacion} />
         <TextField margin="dense" label="Mercadería puesta en" fullWidth variant="standard" value={mercaderiaPuestaEn} onChange={(e) => setMercaderiaPuestaEn(e.target.value)} error={Boolean(errors.mercaderiaPuestaEn)} helperText={errors.mercaderiaPuestaEn} />
+
         <Autocomplete
-          options={Array.isArray(proveedores) ? proveedores : []}
+          options={opcionesProveedores}
           getOptionLabel={(option) => typeof option === 'string' ? option : `${option.nombre_proveedor} (${option.rut})`}
           value={proveedor || null}
           onChange={(event, newValue) => setProveedor(newValue)}
+          onInputChange={(event, newInputValue) => buscarProveedores(newInputValue)}
           renderInput={(params) => (
             <TextField {...params} margin="dense" label="Proveedor" variant="standard" error={Boolean(errors.proveedor)} helperText={errors.proveedor} />
           )}
           fullWidth
           sx={{ mt: 2 }}
         />
+
         <TextField margin="dense" label="Cargo" fullWidth variant="standard" value={cargo} onChange={(e) => setCargo(e.target.value)} error={Boolean(errors.cargo)} helperText={errors.cargo || "Ej: maquinaria, taller, etc."} />
         <FormControl fullWidth margin="dense" variant="standard" error={Boolean(errors.formaPago)}>
           <InputLabel id="forma-pago-label">Forma de Pago</InputLabel>
@@ -159,9 +188,10 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
             <Box key={index} sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
               <Autocomplete
                 freeSolo
-                options={Array.isArray(productos) ? productos : []}
+                options={opcionesProductos}
                 getOptionLabel={(option) => typeof option === 'string' ? option : `${option.codigo} - ${option.nombre}`}
                 value={item.producto || ''}
+                onInputChange={(event, newInputValue) => buscarProductos(newInputValue)}
                 onChange={(event, newValue) => {
                   const newItems = [...detalleItems];
                   newItems[index].producto = newValue;

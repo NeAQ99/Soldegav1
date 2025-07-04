@@ -5,8 +5,9 @@ from .serializers import ProductoSerializer
 
 class ProductoViewSet(viewsets.ModelViewSet):
     queryset = Producto.objects.all()
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['nombre', 'categoria']
+    serializer_class = ProductoSerializer
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
+    search_fields = ['nombre', 'codigo']  # Habilita la búsqueda con ?search=
+    filterset_fields = ['nombre', 'codigo']
     ordering_fields = ['nombre', 'codigo']
     ordering = ['codigo']
-    serializer_class = ProductoSerializer
