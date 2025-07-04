@@ -62,28 +62,33 @@ function Ordenes() {
     fetchOrdenes();
   }, [fetchOrdenes]);
 
-  const fetchProveedores = async () => {
-    try {
-      const response = await axiosInstance.get('ordenes/proveedores/');
-      setProveedores(response.data);
-    } catch (error) {
-      console.error('Error al cargar proveedores:', error);
-    }
-  };
+const fetchProveedores = async () => {
+  try {
+    const response = await axiosInstance.get('ordenes/proveedores/');
+    const data = response.data;
+    setProveedores(Array.isArray(data) ? data : []);
+  } catch (error) {
+    console.error('Error al cargar proveedores:', error);
+    setProveedores([]);  // Evita que quede undefined
+  }
+};
 
-  const fetchProductos = async () => {
-    try {
-      const response = await axiosInstance.get('productos/');
-      setProductos(response.data);
-    } catch (error) {
-      console.error('Error al cargar productos:', error);
-    }
-  };
+const fetchProductos = async () => {
+  try {
+    const response = await axiosInstance.get('productos/');
+    const data = response.data;
+    setProductos(Array.isArray(data) ? data : []);
+  } catch (error) {
+    console.error('Error al cargar productos:', error);
+    setProductos([]);  // Igual que arriba
+  }
+};
 
-  useEffect(() => {
-    fetchProveedores();
-    fetchProductos();
-  }, []);
+useEffect(() => {
+  fetchProveedores();
+  fetchProductos();
+}, []);
+
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);

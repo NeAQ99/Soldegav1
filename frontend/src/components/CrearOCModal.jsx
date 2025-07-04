@@ -26,6 +26,8 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
   const [plazoEntrega, setPlazoEntrega] = useState('');
   const [comentarios, setComentarios] = useState('');
 
+  
+
   // Detalle de la orden: cada línea incluye producto, cantidad y precio unitario.
   const [detalleItems, setDetalleItems] = useState([
     { producto: '', cantidad: '', precio_unitario: '' },
@@ -185,24 +187,26 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
           error={Boolean(errors.mercaderiaPuestaEn)}
           helperText={errors.mercaderiaPuestaEn}
         />
-        <Autocomplete
-          options={proveedores || []}
-          getOptionLabel={(option) => `${option.nombre_proveedor} (${option.rut})`}
-          value={proveedor}
-          onChange={(event, newValue) => setProveedor(newValue)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              margin="dense"
-              label="Proveedor"
-              variant="standard"
-              error={Boolean(errors.proveedor)}
-              helperText={errors.proveedor}
-            />
-          )}
-          fullWidth
-          sx={{ mt: 2 }}
-        />
+       <Autocomplete
+  options={Array.isArray(proveedores) ? proveedores : []}
+  getOptionLabel={(option) =>
+    typeof option === 'string' ? option : `${option.nombre_proveedor} (${option.rut})`
+  }
+  value={proveedor || null}
+  onChange={(event, newValue) => setProveedor(newValue)}
+  renderInput={(params) => (
+    <TextField
+      {...params}
+      margin="dense"
+      label="Proveedor"
+      variant="standard"
+      error={Boolean(errors.proveedor)}
+      helperText={errors.proveedor}
+    />
+  )}
+  fullWidth
+  sx={{ mt: 2 }}
+/>
         <TextField
           margin="dense"
           label="Cargo"
@@ -259,37 +263,37 @@ function CrearOCModal({ open, onClose, onSubmit, proveedores, productos }) {
           <Typography variant="h6">Detalles de la Orden</Typography>
           {detalleItems.map((item, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
-              <Autocomplete
-                freeSolo
-                options={productos || []}
-                getOptionLabel={(option) =>
-                  typeof option === 'string' ? option : `${option.codigo} - ${option.nombre}`
-                }
-                value={item.producto}
-                onChange={(event, newValue) => {
-                  const newItems = [...detalleItems];
-                  newItems[index].producto = newValue;
-                  setDetalleItems(newItems);
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Producto"
-                    variant="standard"
-                    error={
-                      errors.detalleItems &&
-                      errors.detalleItems[index] &&
-                      Boolean(errors.detalleItems[index].producto)
-                    }
-                    helperText={
-                      errors.detalleItems &&
-                      errors.detalleItems[index] &&
-                      errors.detalleItems[index].producto
-                    }
-                  />
-                )}
-                fullWidth
-              />
+    <Autocomplete
+  freeSolo
+  options={Array.isArray(productos) ? productos : []}
+  getOptionLabel={(option) =>
+    typeof option === 'string' ? option : `${option.codigo} - ${option.nombre}`
+  }
+  value={item.producto || ''}
+  onChange={(event, newValue) => {
+    const newItems = [...detalleItems];
+    newItems[index].producto = newValue;
+    setDetalleItems(newItems);
+  }}
+  renderInput={(params) => (
+    <TextField
+      {...params}
+      label="Producto"
+      variant="standard"
+      error={
+        errors.detalleItems &&
+        errors.detalleItems[index] &&
+        Boolean(errors.detalleItems[index].producto)
+      }
+      helperText={
+        errors.detalleItems &&
+        errors.detalleItems[index] &&
+        errors.detalleItems[index].producto
+      }
+    />
+  )}
+  fullWidth
+/>
               <TextField
                 label="Cantidad"
                 type="number"
