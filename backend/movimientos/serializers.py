@@ -15,12 +15,15 @@ class EntradaItemSerializer(serializers.Serializer):
 
 
 class EntradaSerializer(serializers.ModelSerializer):
-    items = EntradaItemSerializer(many=True)
+    items = EntradaItemSerializer(many=True, write_only=True)
     comentario = serializers.CharField(allow_blank=True)
 
     class Meta:
         model = Entrada
-        fields = ['motivo', 'comentario', 'items']
+        fields = ['motivo', 'comentario', 'items']  # 'items' solo se usa para input
+        extra_kwargs = {
+            'comentario': {'required': False}
+        }
 
     def create(self, validated_data):
         usuario = self.context['request'].user
@@ -52,7 +55,9 @@ class EntradaSerializer(serializers.ModelSerializer):
 
             entradas_creadas.append(entrada)
 
+        # Devolver una sola entrada o personalizar la respuesta si es necesario
         return entradas_creadas[0] if len(entradas_creadas) == 1 else entradas_creadas
+
     
 class SalidaSerializer(serializers.ModelSerializer):
     producto_info = serializers.SerializerMethodField()
